@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "Field Marketing",
+    "slug": "field-marketing-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "field-marketing",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E3A5F"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.fieldmarketing.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Kami membutuhkan akses lokasi untuk memverifikasi posisi Anda saat membuat laporan.",
+        "NSLocationAlwaysUsageDescription": "Akses lokasi diperlukan untuk tracking posisi field marketing.",
+        "NSCameraUsageDescription": "Kamera digunakan untuk mengambil foto bukti laporan.",
+        "NSPhotoLibraryUsageDescription": "Akses galeri digunakan untuk memilih foto bukti laporan."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1E3A5F"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.fieldmarketing.mobile",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Akses lokasi diperlukan untuk tracking posisi field marketing."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Akses galeri untuk foto bukti laporan.",
+          "cameraPermission": "Kamera untuk foto bukti laporan."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kamera digunakan untuk foto bukti laporan."
+        }
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      },
+      "supabaseUrl": "https://fumjwepjkfoxpflibvih.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1bWp3ZXBqa2ZveHBmbGlidmloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MTUxNzYsImV4cCI6MjA5MTQ5MTE3Nn0.uZU5vS8tXywYUCvP2_XDZzWuYn_Zv88qGu-3Hk_vRYs"
+    }
+  }
+}

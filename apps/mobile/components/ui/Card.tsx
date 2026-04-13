@@ -1,0 +1,34 @@
+// ============================================================================
+// Card Component — Surface card dengan shadow
+// ============================================================================
+
+import { View, StyleSheet, type ViewStyle } from 'react-native';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+
+interface CardProps {
+  children: React.ReactNode;
+  style?: ViewStyle;
+  padding?: number;
+}
+
+export function Card({ children, style, padding = Spacing.lg }: CardProps) {
+  return (
+    <View style={[styles.card, { padding }, style]}>
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+});
