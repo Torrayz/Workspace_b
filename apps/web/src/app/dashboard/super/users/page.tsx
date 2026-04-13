@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { UserTable } from '@/components/features/users/UserTable';
-import { getUsers, toggleUserStatus, updateUserRole } from '@/app/dashboard/actions';
+import { AddUserModal } from '@/components/features/users/AddUserModal';
+import { getUsers, toggleUserStatus, updateUserRole, createUser } from '@/app/dashboard/actions';
 import { useToast } from '@/components/ui/Toaster';
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addUserOpen, setAddUserOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchUsers = async () => {
@@ -51,6 +53,17 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleAddUser = async (data: {
+    nomor_induk: string;
+    nama: string;
+    nomor_rekening: string;
+    role: string;
+  }) => {
+    await createUser(data);
+    toast('success', `User "${data.nama}" berhasil ditambahkan`);
+    fetchUsers(); // Refresh list
+  };
+
   return (
     <PageContainer
       title="Kelola User"
@@ -60,8 +73,14 @@ export default function UserManagementPage() {
         users={users}
         onToggleActive={handleToggleActive}
         onChangeRole={handleChangeRole}
-        onAddUser={() => toast('info', 'Fitur tambah user via UI akan segera hadir')}
+        onAddUser={() => setAddUserOpen(true)}
         loading={loading}
+      />
+
+      <AddUserModal
+        isOpen={addUserOpen}
+        onClose={() => setAddUserOpen(false)}
+        onSubmit={handleAddUser}
       />
     </PageContainer>
   );

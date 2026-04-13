@@ -1,30 +1,26 @@
 // ============================================================================
 // Sidebar — Navigasi utama dashboard (collapsible)
+// State collapsed dikontrol oleh parent (DashboardLayout)
 // ============================================================================
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
-  FileText,
   Users,
   Upload,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  BarChart3,
-  Map,
 } from 'lucide-react';
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
-  /** Role yang boleh mengakses menu ini */
   roles: string[];
 }
 
@@ -33,24 +29,6 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Dashboard',
     href: '/dashboard/admin',
     icon: LayoutDashboard,
-    roles: ['admin', 'superadmin'],
-  },
-  {
-    label: 'Laporan',
-    href: '/dashboard/admin/reports',
-    icon: FileText,
-    roles: ['admin', 'superadmin'],
-  },
-  {
-    label: 'Peta Realtime',
-    href: '/dashboard/admin/map',
-    icon: Map,
-    roles: ['admin', 'superadmin'],
-  },
-  {
-    label: 'Performa',
-    href: '/dashboard/admin/performance',
-    icon: BarChart3,
     roles: ['admin', 'superadmin'],
   },
   {
@@ -65,36 +43,27 @@ const NAV_ITEMS: NavItem[] = [
     icon: Upload,
     roles: ['superadmin'],
   },
-  // User role
-  {
-    label: 'Dashboard',
-    href: '/dashboard/user',
-    icon: LayoutDashboard,
-    roles: ['user'],
-  },
 ];
 
 interface SidebarProps {
   userRole: string;
   userName: string;
   userNomorInduk: string;
+  collapsed: boolean;
+  onToggle: () => void;
 }
 
-export function Sidebar({ userRole, userName, userNomorInduk }: SidebarProps) {
+export function Sidebar({ userRole, userName, userNomorInduk, collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-
-  // Auto-collapse di bawah breakpoint 1024px
-  useEffect(() => {
-    const handleResize = () => {
-      setCollapsed(window.innerWidth < 1024);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const router = useRouter();
 
   const filteredNav = NAV_ITEMS.filter((item) => item.roles.includes(userRole));
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  };
 
   return (
     <aside
@@ -102,7 +71,7 @@ export function Sidebar({ userRole, userName, userNomorInduk }: SidebarProps) {
         'fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border',
         'bg-primary text-white transition-all duration-300',
         'dark:bg-dark-surface dark:border-dark-border',
-        collapsed ? 'w-sidebar-collapsed' : 'w-sidebar',
+        collapsed ? 'w-[64px]' : 'w-[240px]',
       )}
     >
       {/* Logo */}
@@ -116,7 +85,7 @@ export function Sidebar({ userRole, userName, userNomorInduk }: SidebarProps) {
           </div>
         )}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={onToggle}
           className={cn(
             'flex h-8 w-8 items-center justify-center rounded-lg',
             'text-white/60 hover:text-white hover:bg-white/10 transition-colors',
@@ -132,11 +101,11 @@ export function Sidebar({ userRole, userName, userNomorInduk }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto py-4 px-2">
         <ul className="space-y-1">
           {filteredNav.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const isActive = pathname === item.href;
             const Icon = item.icon;
 
             return (
-              <li key={item.href}>
+              <li key={item.href + item.label}>
                 <Link
                   href={item.href}
                   className={cn(
@@ -177,11 +146,13 @@ export function Sidebar({ userRole, userName, userNomorInduk }: SidebarProps) {
         )}
 
         <button
+          onClick={handleLogout}
           className={cn(
             'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm',
-            'text-white/60 hover:bg-danger/20 hover:text-danger-light transition-colors',
+            'text-white/60 hover:bg-danger/20 hover:text-red-300 transition-colors',
             collapsed && 'justify-center px-2',
           )}
+          title="Keluar"
         >
           <LogOut size={18} className="shrink-0" />
           {!collapsed && <span>Keluar</span>}

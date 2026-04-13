@@ -1,19 +1,29 @@
 // ============================================================================
-// Login Page — Input Nomor Induk + validasi via Edge Function
+// Login Page — Input Nomor Induk + validasi via Server Action
 // ============================================================================
 
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Loader2, LogIn, Shield } from 'lucide-react';
+import { Loader2, LogIn, Shield, AlertTriangle } from 'lucide-react';
+import { validateLogin } from './actions';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [nomorInduk, setNomorInduk] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Cek apakah ada error dari middleware redirect (misal: mobile_only)
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'mobile_only') {
+      setError('Akun Anda hanya bisa diakses melalui aplikasi mobile. Gunakan app Field Marketing di HP Anda.');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,34 +36,28 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/validate-nomor-induk`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-          },
-          body: JSON.stringify({ nomor_induk: nomorInduk.trim() }),
-        },
-      );
+      const result = await validateLogin(nomorInduk.trim());
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Terjadi kesalahan');
+      if (!result.success) {
+        setError(result.error || 'Terjadi kesalahan');
         return;
       }
 
-      // Redirect berdasarkan role
+      // Redirect berdasarkan role — hanya admin/superadmin yang bisa masuk web
       const roleRoutes: Record<string, string> = {
         superadmin: '/dashboard/super',
         admin: '/dashboard/admin',
-        user: '/dashboard/user',
       };
-      router.push(roleRoutes[data.user.role] || '/dashboard/user');
-    } catch {
-      setError('Gagal terhubung ke server. Periksa koneksi internet Anda.');
+
+      const target = roleRoutes[result.role || ''];
+      if (!target) {
+        setError('Akun Anda tidak memiliki akses ke dashboard web.');
+        return;
+      }
+
+      router.push(target);
+    } catch (error: any) {
+      setError(error.message || 'Gagal terhubung ke server. Periksa koneksi internet Anda.');
     } finally {
       setLoading(false);
     }
@@ -112,7 +116,8 @@ export default function LoginPage() {
 
             {/* Error message */}
             {error && (
-              <div className="rounded-lg border border-danger/20 bg-danger/5 px-4 py-3">
+              <div className="rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 flex items-start gap-3">
+                <AlertTriangle size={18} className="text-danger mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-danger">{error}</p>
               </div>
             )}
@@ -139,12 +144,24 @@ export default function LoginPage() {
 
           {/* Footer */}
           <p className="mt-6 text-center text-[10px] text-text-muted dark:text-gray-500">
-            Hanya karyawan terdaftar yang dapat mengakses sistem ini.
+            Dashboard web hanya untuk Admin dan Superadmin.
             <br />
-            Hubungi Superadmin jika Anda belum memiliki akun.
+            User lapangan gunakan aplikasi mobile.
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary via-primary-700 to-primary-900">
+        <Loader2 size={32} className="animate-spin text-white" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

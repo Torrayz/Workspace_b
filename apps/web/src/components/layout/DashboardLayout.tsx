@@ -1,10 +1,11 @@
 // ============================================================================
 // Dashboard Layout — Sidebar + Header + Main content
+// State sidebar collapsed di-manage di sini, diteruskan ke Sidebar & Header
 // ============================================================================
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { cn } from '@/lib/utils';
@@ -33,22 +34,28 @@ export function DashboardLayout({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev);
+  }, []);
+
   return (
     <div className="flex min-h-screen">
       <Sidebar
         userRole={userRole}
         userName={userName}
         userNomorInduk={userNomorInduk}
+        collapsed={sidebarCollapsed}
+        onToggle={toggleSidebar}
       />
 
-      {/* Main area — margin-left sesuai lebar sidebar */}
+      {/* Main area — margin-left sinkron dengan sidebar */}
       <div
         className={cn(
-          'flex-1 transition-all duration-300',
-          sidebarCollapsed ? 'ml-sidebar-collapsed' : 'ml-sidebar',
+          'flex-1 transition-all duration-300 overflow-hidden',
+          sidebarCollapsed ? 'ml-[64px]' : 'ml-[240px]',
         )}
       >
-        <Header userName={userName} sidebarCollapsed={sidebarCollapsed} />
+        <Header userName={userName} />
         {children}
       </div>
     </div>

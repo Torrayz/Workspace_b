@@ -1,9 +1,10 @@
 // ============================================================================
 // Dashboard Layout — Shared layout for all /dashboard/* routes
+// Menggunakan custom auth cookie (auth_user) bukan Supabase Auth session
 // ============================================================================
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
 export default async function DashboardRootLayout({
@@ -11,30 +12,30 @@ export default async function DashboardRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Fetch actual session data from Supabase
-  const supabase = await createSupabaseServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  // Baca custom auth cookie yang di-set saat login via nomor induk
+  const cookieStore = await cookies();
+  const authUserCookie = cookieStore.get('auth_user')?.value;
 
-  if (!session?.user) {
+  if (!authUserCookie) {
     redirect('/login');
   }
 
-  // Get user data from database
-  const { data: userData, error } = await supabase
-    .from('users')
-    .select('id, nama, nomor_induk, role')
-    .eq('id', session.user.id)
-    .single();
+  let authUser: { id: string; nama: string; nomor_induk: string; role: string } | null = null;
+  try {
+    authUser = JSON.parse(authUserCookie);
+  } catch {
+    redirect('/login');
+  }
 
-  if (error || !userData) {
+  if (!authUser) {
     redirect('/login');
   }
 
   return (
     <DashboardLayout
-      userRole={userData.role}
-      userName={userData.nama}
-      userNomorInduk={userData.nomor_induk}
+      userRole={authUser.role}
+      userName={authUser.nama}
+      userNomorInduk={authUser.nomor_induk}
     >
       {children}
     </DashboardLayout>

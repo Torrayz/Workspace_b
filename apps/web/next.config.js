@@ -52,7 +52,8 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '*.supabase.co',
+        // Supabase project URL: fumjwepjkfoxpflibvih.supabase.co
+        hostname: 'fumjwepjkfoxpflibvih.supabase.co',
         pathname: '/storage/v1/object/**',
       },
     ],
