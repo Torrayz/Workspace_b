@@ -1,5 +1,7 @@
 // ============================================================================
 // Form Laporan — Submit laporan dengan foto + GPS auto-capture
+// Redesign v2: Matching Form Kunjungan design with colored status chips,
+// camera upload area, GPS line, and split bottom buttons
 // ============================================================================
 
 import { useEffect, useState } from 'react';
@@ -25,7 +27,15 @@ import { useRencana } from '@/hooks/useRencana';
 import { useLocation } from '@/hooks/useLocation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
+import {
+  Colors,
+  FontSize,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  HeaderStyle,
+  StatusConfig,
+} from '@/constants/theme';
 
 // ── Validasi ────────────────────────────────────────────────────────────────
 const laporanSchema = z.object({
@@ -42,11 +52,11 @@ const laporanSchema = z.object({
 
 type LaporanForm = z.infer<typeof laporanSchema>;
 
-const STATUS_OPTIONS: { value: LaporanForm['status']; label: string }[] = [
-  { value: 'lunas', label: 'Lunas' },
-  { value: 'sebagian', label: 'Sebagian' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'gagal', label: 'Gagal' },
+const STATUS_OPTIONS: { value: LaporanForm['status']; label: string; icon: string; color: string; bg: string }[] = [
+  { value: 'lunas', label: 'Lunas', icon: '✓', color: Colors.success, bg: Colors.successLight },
+  { value: 'pending', label: 'Pending', icon: '⏳', color: Colors.warning, bg: Colors.warningLight },
+  { value: 'gagal', label: 'Gagal', icon: '✗', color: Colors.danger, bg: Colors.dangerLight },
+  { value: 'sebagian', label: 'Sebagian', icon: '≈', color: Colors.info, bg: Colors.infoLight },
 ];
 
 function formatCurrencyInput(value: string): string {
@@ -81,6 +91,9 @@ export default function BuatLaporanScreen() {
 
   const selectedStatus = watch('status');
   const selectedRencanaId = watch('rencana_id');
+
+  // Get selected rencana for header subtitle
+  const selectedRencana = rencanaAktifList.find((r) => r.id === selectedRencanaId);
 
   useEffect(() => {
     fetchRencanaAktif().then(setRencanaAktifList);
@@ -168,13 +181,20 @@ export default function BuatLaporanScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header — Rounded bottom */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backBtn}>← Kembali</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backArea}>
+          <Text style={styles.backBtn}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Buat Laporan</Text>
-        <View style={{ width: 60 }} />
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Form Kunjungan</Text>
+          {selectedRencana && (
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              {selectedRencana.deskripsi || 'Rencana'} — {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(selectedRencana.target_nominal)}
+            </Text>
+          )}
+        </View>
+        <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView
@@ -188,57 +208,43 @@ export default function BuatLaporanScreen() {
         >
           {/* Pilih Rencana */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Rencana</Text>
+            <Text style={styles.fieldLabel}>Login ID *</Text>
             {rencanaAktifList.length === 0 ? (
               <View style={styles.emptyRencana}>
                 <Text style={styles.emptyRencanaText}>Tidak ada rencana aktif</Text>
               </View>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.rencanaChips}>
-                  {rencanaAktifList.map((r) => (
-                    <TouchableOpacity
-                      key={r.id}
-                      onPress={() => setValue('rencana_id', r.id)}
-                      style={[
-                        styles.rencanaChip,
-                        selectedRencanaId === r.id && styles.rencanaChipActive,
-                      ]}
-                    >
-                      <Text
+              <View style={styles.dropdownWrapper}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.rencanaChips}>
+                    {rencanaAktifList.map((r) => (
+                      <TouchableOpacity
+                        key={r.id}
+                        onPress={() => setValue('rencana_id', r.id)}
                         style={[
-                          styles.rencanaChipText,
-                          selectedRencanaId === r.id && styles.rencanaChipTextActive,
+                          styles.rencanaChip,
+                          selectedRencanaId === r.id && styles.rencanaChipActive,
                         ]}
                       >
-                        {new Intl.NumberFormat('id-ID', { notation: 'compact' }).format(r.target_nominal)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+                        <Text
+                          style={[
+                            styles.rencanaChipText,
+                            selectedRencanaId === r.id && styles.rencanaChipTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {r.deskripsi || new Intl.NumberFormat('id-ID', { notation: 'compact' }).format(r.target_nominal)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
             )}
             {errors.rencana_id && (
               <Text style={styles.errorText}>{errors.rencana_id.message}</Text>
             )}
           </View>
-
-          {/* Jumlah Tagihan */}
-          <Controller
-            control={control}
-            name="jumlah_tagihan"
-            render={({ field: { onChange, value } }) => (
-              <Input
-                label="Jumlah Tagihan"
-                prefix="Rp"
-                placeholder="0"
-                value={formatCurrencyInput(String(value || ''))}
-                onChangeText={(text) => onChange(text.replace(/\D/g, '') || '')}
-                error={errors.jumlah_tagihan?.message}
-                keyboardType="numeric"
-              />
-            )}
-          />
 
           {/* Tanggal Penagihan */}
           <Controller
@@ -247,6 +253,7 @@ export default function BuatLaporanScreen() {
             render={({ field: { onChange, value } }) => (
               <Input
                 label="Tanggal Penagihan"
+                required
                 placeholder="YYYY-MM-DD"
                 value={value}
                 onChangeText={onChange}
@@ -257,62 +264,59 @@ export default function BuatLaporanScreen() {
 
           {/* Status */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Status</Text>
+            <Text style={styles.fieldLabel}>Status Hasil</Text>
             <View style={styles.statusOptions}>
-              {STATUS_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt.value}
-                  onPress={() => setValue('status', opt.value)}
-                  style={[
-                    styles.statusChip,
-                    selectedStatus === opt.value && styles.statusChipActive,
-                  ]}
-                >
-                  <Text
+              {STATUS_OPTIONS.map((opt) => {
+                const isActive = selectedStatus === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => setValue('status', opt.value)}
                     style={[
-                      styles.statusChipText,
-                      selectedStatus === opt.value && styles.statusChipTextActive,
+                      styles.statusChip,
+                      isActive && { backgroundColor: opt.bg, borderColor: opt.color },
                     ]}
                   >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Upload Foto */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Foto Bukti (wajib min. 1)</Text>
-
-            <View style={styles.fotoGrid}>
-              {fotoUris.map((uri) => (
-                <View key={uri} style={styles.fotoThumb}>
-                  <Image source={{ uri }} style={styles.fotoImage} />
-                  <TouchableOpacity
-                    onPress={() => removePhoto(uri)}
-                    style={styles.fotoRemove}
-                  >
-                    <Text style={styles.fotoRemoveText}>✕</Text>
+                    <Text
+                      style={[
+                        styles.statusChipText,
+                        isActive && { color: opt.color, fontWeight: '700' },
+                      ]}
+                    >
+                      {opt.icon} {opt.label}
+                    </Text>
                   </TouchableOpacity>
-                </View>
-              ))}
-
-              <TouchableOpacity style={styles.fotoAdd} onPress={pickPhoto}>
-                <Text style={styles.fotoAddIcon}>📷</Text>
-                <Text style={styles.fotoAddText}>Tambah Foto</Text>
-              </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
-          {/* Keterangan */}
+          {/* DH Tertagih / Jumlah Tagihan */}
+          <Controller
+            control={control}
+            name="jumlah_tagihan"
+            render={({ field: { onChange, value } }) => (
+              <Input
+                label="DH Tertagih"
+                required
+                prefix="Rp"
+                placeholder="0.00"
+                value={formatCurrencyInput(String(value || ''))}
+                onChangeText={(text) => onChange(text.replace(/\D/g, '') || '')}
+                error={errors.jumlah_tagihan?.message}
+                keyboardType="numeric"
+              />
+            )}
+          />
+
+          {/* Keterangan / Hasil Kunjungan */}
           <Controller
             control={control}
             name="keterangan"
             render={({ field: { onChange, value } }) => (
               <Input
-                label="Keterangan (Opsional)"
-                placeholder="Catatan tambahan..."
+                label="Hasil Kunjungan"
+                placeholder="Catatan hasil kunjungan..."
                 value={value}
                 onChangeText={onChange}
                 multiline
@@ -322,14 +326,46 @@ export default function BuatLaporanScreen() {
             )}
           />
 
+          {/* Upload Foto Kunjungan */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Foto Kunjungan</Text>
+
+            {/* Photo thumbnails */}
+            {fotoUris.length > 0 && (
+              <View style={styles.fotoGrid}>
+                {fotoUris.map((uri) => (
+                  <View key={uri} style={styles.fotoThumb}>
+                    <Image source={{ uri }} style={styles.fotoImage} />
+                    <TouchableOpacity
+                      onPress={() => removePhoto(uri)}
+                      style={styles.fotoRemove}
+                    >
+                      <Text style={styles.fotoRemoveText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Camera upload area */}
+            <TouchableOpacity style={styles.fotoUploadArea} onPress={pickPhoto}>
+              <View style={styles.fotoUploadCircle}>
+                <Text style={styles.fotoUploadIcon}>📷</Text>
+              </View>
+              <Text style={styles.fotoUploadText}>Tap untuk ambil foto</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* GPS Info */}
           <View style={styles.gpsInfo}>
-            <Text style={styles.gpsLabel}>📍 Lokasi GPS</Text>
-            <Text style={styles.gpsCoords}>
-              {latitude && longitude
-                ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
-                : 'Memuat lokasi...'}
-            </Text>
+            <View style={styles.gpsRow}>
+              <View style={styles.gpsDot} />
+              <Text style={styles.gpsCoords}>
+                {latitude && longitude
+                  ? `${latitude.toFixed(5)},  ${longitude.toFixed(5)}`
+                  : 'Memuat lokasi...'}
+              </Text>
+            </View>
           </View>
 
           {/* Upload progress */}
@@ -347,14 +383,20 @@ export default function BuatLaporanScreen() {
           )}
         </ScrollView>
 
-        {/* Submit fixed di bottom */}
+        {/* Footer — Batal + Simpan Kunjungan */}
         <View style={styles.footer}>
           <Button
-            label={loading ? 'Mengirim laporan...' : 'Kirim Laporan'}
+            label="Batal"
+            onPress={() => router.back()}
+            variant="outline"
+            style={styles.footerBtnLeft}
+            disabled={loading}
+          />
+          <Button
+            label="Simpan Kunjungan"
             onPress={handleSubmit(onSubmit)}
             loading={loading}
-            fullWidth
-            size="lg"
+            style={styles.footerBtnRight}
           />
         </View>
       </KeyboardAvoidingView>
@@ -364,17 +406,45 @@ export default function BuatLaporanScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  // ── Header ────────────────────────────────────────────────
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: Colors.primary,
     paddingTop: 52,
     paddingBottom: 16,
     paddingHorizontal: Spacing.lg,
+    ...HeaderStyle,
+    ...Shadows.header,
   },
-  backBtn: { color: 'rgba(255,255,255,0.8)', fontSize: FontSize.sm, fontWeight: '500' },
-  headerTitle: { fontSize: FontSize.lg, fontWeight: '700', color: '#FFF' },
+  backArea: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtn: {
+    color: '#FFFFFF',
+    fontSize: FontSize.xl,
+    fontWeight: '500',
+  },
+  headerCenter: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+  },
+  headerTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  headerSubtitle: {
+    fontSize: FontSize.xs,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 2,
+  },
+  // ── Body ──────────────────────────────────────────────────
   body: { flex: 1 },
   bodyContent: { padding: Spacing.lg, paddingBottom: 40 },
   fieldContainer: { marginBottom: Spacing.md },
@@ -382,63 +452,112 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
   },
+  // ── Rencana selector ──────────────────────────────────────
+  dropdownWrapper: {
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surface,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
   emptyRencana: {
     padding: Spacing.md, backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.sm, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.border,
   },
   emptyRencanaText: { fontSize: FontSize.sm, color: Colors.textMuted },
   rencanaChips: { flexDirection: 'row', gap: Spacing.sm },
   rencanaChip: {
     paddingHorizontal: Spacing.md, paddingVertical: 8,
     borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceAlt,
   },
-  rencanaChipActive: { borderColor: Colors.accent, backgroundColor: Colors.accent + '15' },
+  rencanaChipActive: { borderColor: Colors.accent, backgroundColor: Colors.infoSoft },
   rencanaChipText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600' },
   rencanaChipTextActive: { color: Colors.accent },
   errorText: { fontSize: FontSize.xs, color: Colors.danger, marginTop: 4 },
+  // ── Status chips (colored) ────────────────────────────────
   statusOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   statusChip: {
-    paddingHorizontal: Spacing.md, paddingVertical: 8,
+    paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.border,
     backgroundColor: Colors.surface,
   },
-  statusChipActive: { borderColor: Colors.accent, backgroundColor: Colors.accent },
   statusChipText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600' },
-  statusChipTextActive: { color: '#FFF' },
-  fotoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  // ── Foto upload ───────────────────────────────────────────
+  fotoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm },
   fotoThumb: { position: 'relative', width: 88, height: 88 },
-  fotoImage: { width: 88, height: 88, borderRadius: BorderRadius.sm },
+  fotoImage: { width: 88, height: 88, borderRadius: BorderRadius.md },
   fotoRemove: {
     position: 'absolute', top: -8, right: -8,
     width: 24, height: 24, borderRadius: 12,
     backgroundColor: Colors.danger,
     alignItems: 'center', justifyContent: 'center',
+    ...Shadows.card,
   },
-  fotoRemoveText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
-  fotoAdd: {
-    width: 88, height: 88, borderRadius: BorderRadius.sm,
-    borderWidth: 2, borderColor: Colors.border, borderStyle: 'dashed',
-    alignItems: 'center', justifyContent: 'center',
+  fotoRemoveText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  fotoUploadArea: {
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceAlt,
+  },
+  fotoUploadCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  fotoAddIcon: { fontSize: 24 },
-  fotoAddText: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
+  fotoUploadIcon: { fontSize: 24 },
+  fotoUploadText: { fontSize: FontSize.xs, color: Colors.textMuted },
+  // ── GPS ───────────────────────────────────────────────────
   gpsInfo: {
     padding: Spacing.md, backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.sm, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.borderLight,
     marginBottom: Spacing.md,
   },
-  gpsLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600', marginBottom: 2 },
-  gpsCoords: { fontSize: FontSize.sm, color: Colors.textPrimary, fontFamily: 'monospace' },
+  gpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gpsDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.accent,
+    marginRight: Spacing.sm,
+  },
+  gpsCoords: {
+    fontSize: FontSize.sm,
+    color: Colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontWeight: '500',
+  },
+  // ── Progress ──────────────────────────────────────────────
   progressContainer: { marginBottom: Spacing.md },
   progressText: { fontSize: FontSize.xs, color: Colors.textSecondary, marginBottom: 6 },
   progressBar: {
     height: 4, backgroundColor: Colors.border, borderRadius: 2, overflow: 'hidden',
   },
   progressFill: { height: '100%', backgroundColor: Colors.accent, borderRadius: 2 },
+  // ── Footer ────────────────────────────────────────────────
   footer: {
-    padding: Spacing.lg, backgroundColor: Colors.surface,
-    borderTopWidth: 1, borderTopColor: Colors.border,
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
   },
+  footerBtnLeft: { flex: 1 },
+  footerBtnRight: { flex: 2 },
 });

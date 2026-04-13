@@ -1,5 +1,6 @@
 // ============================================================================
-// Badge Component — Status pill dengan warna
+// Badge Component — Status pill dengan warna + icon
+// Redesign v2: Slightly bigger, bolder, icon support
 // ============================================================================
 
 import { View, Text, StyleSheet, type ViewStyle } from 'react-native';
@@ -11,14 +12,18 @@ type StatusKey = keyof typeof StatusConfig;
 interface StatusBadgeProps {
   status: StatusKey;
   style?: ViewStyle;
+  /** Show icon prefix (e.g. ✓, ✗) */
+  showIcon?: boolean;
 }
 
-export function StatusBadge({ status, style }: StatusBadgeProps) {
+export function StatusBadge({ status, style, showIcon = false }: StatusBadgeProps) {
   const config = StatusConfig[status];
 
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }, style]}>
-      <Text style={[styles.text, { color: config.color }]}>{config.label}</Text>
+      <Text style={[styles.text, { color: config.color }]}>
+        {showIcon ? `${config.icon} ${config.label}` : config.label}
+      </Text>
     </View>
   );
 }
@@ -40,13 +45,13 @@ export function Badge({ label, color, bg, style }: BadgeProps) {
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: BorderRadius.full,
     alignSelf: 'flex-start',
   },
   text: {
     fontSize: FontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

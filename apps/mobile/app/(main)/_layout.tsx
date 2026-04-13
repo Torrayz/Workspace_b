@@ -1,19 +1,45 @@
 // ============================================================================
 // Main Layout — Bottom Tab Navigator: Home, Rencana, History
 // + hidden screens for sub-pages (laporan/buat)
+// Redesign v2: Polished tab bar with rounded corners + active indicator
 // ============================================================================
 
 import { Tabs, router } from 'expo-router';
 import { useEffect } from 'react';
-import { Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
-import { Colors } from '@/constants/theme';
+import { Colors, Shadows } from '@/constants/theme';
 
-function TabIcon({ symbol, focused }: { symbol: string; focused: boolean }) {
+function TabIcon({ symbol, label, focused }: { symbol: string; label: string; focused: boolean }) {
   return (
-    <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>{symbol}</Text>
+    <View style={tabStyles.iconContainer}>
+      <Text style={[tabStyles.icon, focused && tabStyles.iconActive]}>{symbol}</Text>
+      {focused && <View style={tabStyles.activeDot} />}
+    </View>
   );
 }
+
+const tabStyles = StyleSheet.create({
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+  },
+  icon: {
+    fontSize: 22,
+    opacity: 0.45,
+  },
+  iconActive: {
+    opacity: 1,
+  },
+  activeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: Colors.accent,
+    marginTop: 3,
+  },
+});
 
 export default function MainLayout() {
   const { isLoggedIn, isInitialized } = useAuth();
@@ -35,16 +61,22 @@ export default function MainLayout() {
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
           backgroundColor: Colors.surface,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 64,
+          borderTopWidth: 0,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          paddingBottom: 10,
+          paddingTop: 10,
+          height: 70,
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          ...Shadows.header,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
-          marginTop: 2,
+          marginTop: 0,
         },
       }}
     >
@@ -52,21 +84,21 @@ export default function MainLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon symbol="🏠" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon symbol="🏠" label="Home" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="rencana"
         options={{
           title: 'Rencana',
-          tabBarIcon: ({ focused }) => <TabIcon symbol="📋" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon symbol="📋" label="Rencana" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: 'History',
-          tabBarIcon: ({ focused }) => <TabIcon symbol="📄" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon symbol="📄" label="History" focused={focused} />,
         }}
       />
       {/* Hidden from tab bar — accessed via router.push() */}

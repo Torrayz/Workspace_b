@@ -13,6 +13,7 @@
     "@expo-google-fonts/plus-jakarta-sans": "*",
     "@expo/metro-runtime": "~6.1.2",
     "@hookform/resolvers": "*",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@shopify/flash-list": "2.0.2",
     "@supabase/supabase-js": "*",
     "date-fns": "*",

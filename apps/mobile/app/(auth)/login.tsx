@@ -1,5 +1,6 @@
 // ============================================================================
 // Login Screen — Input Nomor Induk → konfirmasi nama → masuk
+// Redesign v2: Split dark/white layout, matching design reference
 // ============================================================================
 
 import { useState } from 'react';
@@ -20,8 +21,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useLocation } from '@/hooks/useLocation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Colors, FontSize, Spacing } from '@/constants/theme';
+import { Colors, FontSize, Spacing, Shadows, BorderRadius } from '@/constants/theme';
 import Constants from 'expo-constants';
 
 const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl || '';
@@ -130,23 +130,24 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        bounces={false}
       >
-        {/* Header */}
+        {/* Dark Navy Header Section */}
         <View style={styles.header}>
           <View style={styles.logo}>
             <Text style={styles.logoText}>FM</Text>
           </View>
           <Text style={styles.title}>Field Marketing</Text>
-          <Text style={styles.subtitle}>Sistem Pelaporan</Text>
+          <Text style={styles.subtitle}>Sistem Penagihan & Pelaporan</Text>
         </View>
 
-        {/* Form Card */}
-        <Card style={styles.card}>
+        {/* White Form Section */}
+        <View style={styles.formSection}>
           {step === 'input' ? (
             <>
-              <Text style={styles.cardTitle}>Masuk ke Akun</Text>
-              <Text style={styles.cardDesc}>
-                Masukkan Nomor Induk Karyawan Anda untuk melanjutkan.
+              <Text style={styles.formTitle}>Masuk ke Akun</Text>
+              <Text style={styles.formDesc}>
+                Masukkan Nomor Induk Karyawan Anda.
               </Text>
 
               <Controller
@@ -155,7 +156,8 @@ export default function LoginScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Input
                     label="Nomor Induk"
-                    placeholder="Contoh: USR001"
+                    required
+                    placeholder="USR001"
                     value={value}
                     onChangeText={onChange}
                     onBlur={onBlur}
@@ -173,22 +175,25 @@ export default function LoginScreen() {
                 onPress={handleSubmit(onValidate)}
                 loading={loading}
                 fullWidth
+                showArrow
+                size="lg"
               />
             </>
           ) : (
             // Step konfirmasi identitas
             <>
-              <Text style={styles.cardTitle}>Konfirmasi Identitas</Text>
-              <Text style={styles.cardDesc}>
-                Pastikan informasi berikut adalah milik Anda:
-              </Text>
+              <View style={styles.confirmHeader}>
+                <View style={styles.confirmDot} />
+                <Text style={styles.confirmTitle}>Konfirmasi Identitas</Text>
+              </View>
 
               <View style={styles.infoBox}>
                 <InfoRow label="Nama" value={validatedUser?.user.nama || ''} />
-                <InfoRow label="Nomor Induk" value={getValues('nomor_induk')} />
+                <InfoRow label="No. Induk" value={getValues('nomor_induk')} />
                 <InfoRow
-                  label="Nomor Rekening"
+                  label="Rekening"
                   value={validatedUser?.user.nomor_rekening || ''}
+                  isLast
                 />
               </View>
 
@@ -209,21 +214,21 @@ export default function LoginScreen() {
               </View>
             </>
           )}
-        </Card>
+        </View>
 
         {/* Footer */}
         <Text style={styles.footer}>
           Hanya karyawan terdaftar yang dapat mengakses.{'\n'}
-          Hubungi Superadmin jika belum memiliki akun.
+          Hubungi Superadmin jika belum ada akun.
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, isLast = false }: { label: string; value: string; isLast?: boolean }) {
   return (
-    <View style={infoStyles.row}>
+    <View style={[infoStyles.row, isLast && infoStyles.rowLast]}>
       <Text style={infoStyles.label}>{label}</Text>
       <Text style={infoStyles.value}>{value}</Text>
     </View>
@@ -234,9 +239,12 @@ const infoStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.borderLight,
+  },
+  rowLast: {
+    borderBottomWidth: 0,
   },
   label: {
     fontSize: FontSize.sm,
@@ -260,30 +268,26 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 80,
-    paddingBottom: Spacing.xl,
   },
+  // ── Header (dark navy top) ─────────────────────────────
   header: {
     alignItems: 'center',
-    marginBottom: Spacing.xl,
+    paddingTop: 80,
+    paddingBottom: 48,
+    paddingHorizontal: Spacing.lg,
   },
   logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 18,
+    width: 80,
+    height: 80,
+    borderRadius: 22,
     backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Shadows.fab,
   },
   logoText: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -295,28 +299,61 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.5)',
   },
-  card: {
-    marginBottom: Spacing.lg,
+
+  // ── Form section (white bottom) ─────────────────────────
+  formSection: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: BorderRadius['3xl'],
+    borderTopRightRadius: BorderRadius['3xl'],
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.lg,
+    ...Shadows.header,
   },
-  cardTitle: {
-    fontSize: FontSize.lg,
+  formTitle: {
+    fontSize: FontSize.xl,
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: 6,
+    textAlign: 'center',
   },
-  cardDesc: {
+  formDesc: {
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
     marginBottom: Spacing.lg,
     lineHeight: 20,
+    textAlign: 'center',
+  },
+
+  // ── Confirm step ────────────────────────────────────────
+  confirmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+  },
+  confirmDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.accent,
+    marginRight: Spacing.sm,
+  },
+  confirmTitle: {
+    fontSize: FontSize.base,
+    fontWeight: '600',
+    color: Colors.accent,
   },
   infoBox: {
     backgroundColor: Colors.background,
-    borderRadius: 12,
+    borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   confirmButtons: {
     flexDirection: 'row',
@@ -328,10 +365,15 @@ const styles = StyleSheet.create({
   confirmBtnRight: {
     flex: 1,
   },
+
+  // ── Footer ──────────────────────────────────────────────
   footer: {
     fontSize: FontSize.xs,
     color: 'rgba(255,255,255,0.4)',
     textAlign: 'center',
     lineHeight: 18,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
   },
 });

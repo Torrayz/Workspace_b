@@ -1,5 +1,6 @@
 // ============================================================================
 // Input Component — Text input dengan label, error, prefix/suffix
+// Redesign v2: More rounded borders, prominent focus state
 // ============================================================================
 
 import { useState } from 'react';
@@ -19,6 +20,7 @@ interface InputProps extends TextInputProps {
   hint?: string;
   containerStyle?: ViewStyle;
   prefix?: string; // Contoh: "Rp"
+  required?: boolean;
 }
 
 export function Input({
@@ -27,13 +29,19 @@ export function Input({
   hint,
   containerStyle,
   prefix,
+  required = false,
   ...props
 }: InputProps) {
   const [focused, setFocused] = useState(false);
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={styles.label}>
+          {label}
+          {required && <Text style={styles.required}> *</Text>}
+        </Text>
+      )}
 
       <View
         style={[
@@ -50,6 +58,7 @@ export function Input({
           onBlur={() => setFocused(false)}
           {...props}
         />
+        {focused && <View style={styles.focusDot} />}
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
@@ -70,23 +79,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 6,
   },
+  required: {
+    color: Colors.danger,
+  },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.surface,
     minHeight: 48,
     paddingHorizontal: Spacing.md,
   },
   inputFocused: {
     borderColor: Colors.accent,
-    backgroundColor: '#EFF6FF',
+    borderWidth: 2,
+    backgroundColor: Colors.infoSoft,
   },
   inputError: {
     borderColor: Colors.danger,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: Colors.dangerSoft,
   },
   input: {
     flex: 1,
@@ -102,6 +115,13 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
     fontWeight: '500',
+  },
+  focusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.accent,
+    marginLeft: Spacing.sm,
   },
   error: {
     fontSize: FontSize.xs,

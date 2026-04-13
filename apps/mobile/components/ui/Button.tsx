@@ -1,6 +1,6 @@
 // ============================================================================
 // Button Component — Primary, Secondary, Outline, Ghost, Danger
-// Fixed di bottom untuk CTA screens (thumb-friendly)
+// Redesign v2: More rounded, arrow suffix support
 // ============================================================================
 
 import {
@@ -8,6 +8,7 @@ import {
   Text,
   ActivityIndicator,
   StyleSheet,
+  View,
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
@@ -24,6 +25,8 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
+  /** Show arrow suffix → */
+  showArrow?: boolean;
   style?: ViewStyle;
 }
 
@@ -40,9 +43,9 @@ const variantStyles: Record<Variant, { container: ViewStyle; text: TextStyle }> 
     container: {
       backgroundColor: 'transparent',
       borderWidth: 1.5,
-      borderColor: Colors.border,
+      borderColor: Colors.accent,
     },
-    text: { color: Colors.textPrimary },
+    text: { color: Colors.accent },
   },
   ghost: {
     container: { backgroundColor: 'transparent' },
@@ -77,6 +80,7 @@ export function Button({
   loading = false,
   disabled = false,
   fullWidth = false,
+  showArrow = false,
   style,
 }: ButtonProps) {
   const vStyle = variantStyles[variant];
@@ -103,7 +107,12 @@ export function Button({
           size="small"
         />
       ) : (
-        <Text style={[styles.text, vStyle.text, sStyle.text]}>{label}</Text>
+        <View style={styles.labelRow}>
+          <Text style={[styles.text, vStyle.text, sStyle.text]}>{label}</Text>
+          {showArrow && (
+            <Text style={[styles.arrow, vStyle.text, sStyle.text]}> →</Text>
+          )}
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -115,7 +124,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: BorderRadius.md,
-    minWidth: 44, // Tap target minimum 44px
+    minWidth: 44,
   },
   fullWidth: {
     width: '100%',
@@ -123,8 +132,15 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   text: {
     fontWeight: '600',
     textAlign: 'center',
+  },
+  arrow: {
+    fontWeight: '400',
   },
 });

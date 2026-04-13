@@ -64,8 +64,8 @@ export function useRencana() {
   }, [user]);
 
   /** Buat rencana baru */
-  const createRencana = useCallback(async (payload: CreateRencanaPayload): Promise<boolean> => {
-    if (!user) return false;
+  const createRencana = useCallback(async (payload: CreateRencanaPayload): Promise<{success: boolean, error?: string}> => {
+    if (!user) return { success: false, error: 'User not logged in' };
     setLoading(true);
     setError(null);
 
@@ -80,12 +80,14 @@ export function useRencana() {
     setLoading(false);
 
     if (insertError) {
-      setError(insertError.message);
-      return false;
+      const errMsg = insertError.message || JSON.stringify(insertError);
+      setError(errMsg);
+      console.error('Supabase insert error details:', insertError);
+      return { success: false, error: errMsg };
     }
 
     await fetchRencana();
-    return true;
+    return { success: true };
   }, [user, fetchRencana]);
 
   const hasRencanaAktif = rencanaList.some((r) => r.status === 'aktif');

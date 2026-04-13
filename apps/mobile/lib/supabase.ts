@@ -1,18 +1,18 @@
 // ============================================================================
-// Supabase Client — Singleton untuk mobile app
-// Token disimpan di expo-secure-store (enkripsi native OS)
+// Supabase Client — Singleton untuk mobile app (Refactored)
 // ============================================================================
 
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || '';
 const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || '';
 
 /**
  * Custom storage adapter menggunakan expo-secure-store.
- * Token JWT disimpan terenkripsi di keychain/keystore OS — bukan AsyncStorage.
+ * Terdapat proteksi peringatan untuk limit 2KB di Android.
  */
 const ExpoSecureStoreAdapter = {
   getItem: async (key: string): Promise<string | null> => {
@@ -24,6 +24,10 @@ const ExpoSecureStoreAdapter = {
   },
   setItem: async (key: string, value: string): Promise<void> => {
     try {
+      // Peringatan jika sesi melebihi limit 2KB di Android (Batas maksimal SecureStore)
+      if (Platform.OS === 'android' && value.length > 2048) {
+        console.warn('⚠️ AWAS: Sesi Supabase melebihi 2KB. SecureStore Android mungkin gagal menyimpannya.');
+      }
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
       console.error('SecureStore setItem error:', error);
@@ -43,6 +47,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: ExpoSecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // Tidak pakai deep link auth
-  },
+    detectSessionInUrl: false, // Aman untuk React Native
+  }
 });

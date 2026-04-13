@@ -1,5 +1,6 @@
 // ============================================================================
 // Home Screen — Greeting + status hari ini + CTA buttons
+// Redesign v2: Rounded navy header, polished cards, modern CTA grid
 // ============================================================================
 
 import { useEffect } from 'react';
@@ -18,7 +19,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/Badge';
 import { CardSkeleton } from '@/components/ui/Skeleton';
-import { Colors, FontSize, Spacing } from '@/constants/theme';
+import { Colors, FontSize, Spacing, Shadows, HeaderStyle, BorderRadius } from '@/constants/theme';
 import { formatRupiah } from '@/lib/formatters';
 
 export default function HomeScreen() {
@@ -43,13 +44,15 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
 
-      {/* Header */}
+      {/* Header — Rounded bottom */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.nama?.charAt(0).toUpperCase() || 'U'}
-            </Text>
+          <View style={styles.avatarRing}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user?.nama?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
           </View>
           <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
             <Text style={styles.logoutText}>Keluar</Text>
@@ -71,7 +74,10 @@ export default function HomeScreen() {
         {loading ? (
           <CardSkeleton />
         ) : rencanaAktif ? (
-          <Card style={styles.rencanaCard}>
+          <Card
+            style={styles.rencanaCard}
+            leftBorderColor={Colors.accent}
+          >
             <View style={styles.rencanaCardHeader}>
               <Text style={styles.rencanaCardLabel}>Rencana Aktif</Text>
               <StatusBadge status="pending" />
@@ -107,8 +113,11 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.ctaCard}
               onPress={() => router.push('/(main)/rencana')}
+              activeOpacity={0.8}
             >
-              <Text style={styles.ctaIcon}>📋</Text>
+              <View style={styles.ctaIconBg}>
+                <Text style={styles.ctaIcon}>📋</Text>
+              </View>
               <Text style={styles.ctaLabel}>Buat Rencana</Text>
               <Text style={styles.ctaDesc}>Tambah rencana baru</Text>
             </TouchableOpacity>
@@ -122,9 +131,9 @@ export default function HomeScreen() {
               }}
               activeOpacity={hasRencanaAktif ? 0.8 : 1}
             >
-              <Text style={[styles.ctaIcon, !hasRencanaAktif && styles.ctaIconDisabled]}>
-                📝
-              </Text>
+              <View style={[styles.ctaIconBg, !hasRencanaAktif && styles.ctaIconBgDisabled]}>
+                <Text style={styles.ctaIcon}>📝</Text>
+              </View>
               <Text style={[styles.ctaLabel, !hasRencanaAktif && styles.ctaLabelDisabled]}>
                 Buat Laporan
               </Text>
@@ -140,7 +149,17 @@ export default function HomeScreen() {
           <View style={styles.recentSection}>
             <Text style={styles.sectionTitle}>Rencana Terakhir</Text>
             {rencanaList.slice(0, 3).map((r) => (
-              <Card key={r.id} style={styles.recentCard}>
+              <Card
+                key={r.id}
+                style={styles.recentCard}
+                leftBorderColor={
+                  r.status === 'aktif'
+                    ? Colors.warning
+                    : r.status === 'selesai'
+                    ? Colors.success
+                    : Colors.danger
+                }
+              >
                 <View style={styles.recentCardRow}>
                   <View style={styles.recentCardLeft}>
                     <Text style={styles.recentNominal}>{formatRupiah(r.target_nominal)}</Text>
@@ -158,6 +177,9 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
+
+        {/* Bottom padding for tab bar */}
+        <View style={{ height: 80 }} />
       </ScrollView>
     </View>
   );
@@ -170,6 +192,8 @@ const styles = StyleSheet.create({
     paddingTop: 52,
     paddingBottom: 28,
     paddingHorizontal: Spacing.lg,
+    ...HeaderStyle,
+    ...Shadows.header,
   },
   headerTop: {
     flexDirection: 'row',
@@ -177,10 +201,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
+  avatarRing: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -188,29 +221,30 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: FontSize.lg, fontWeight: '700', color: '#FFF' },
   logoutBtn: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   logoutText: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-  greeting: { fontSize: FontSize.base, color: 'rgba(255,255,255,0.7)' },
+  greeting: { fontSize: FontSize.base, color: 'rgba(255,255,255,0.6)' },
   userName: { fontSize: FontSize.xl, fontWeight: '700', color: '#FFF', marginTop: 2 },
-  nomorInduk: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
+  nomorInduk: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.4)', marginTop: 4 },
   content: { flex: 1 },
-  contentContainer: { padding: Spacing.lg, paddingBottom: 40 },
+  contentContainer: { padding: Spacing.lg, paddingTop: Spacing.lg },
   sectionTitle: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.xs,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     marginBottom: Spacing.sm,
     marginTop: Spacing.md,
   },
   rencanaCard: { marginBottom: Spacing.md },
   rencanaCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  rencanaCardLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
+  rencanaCardLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   rencanaTarget: { fontSize: FontSize['2xl'], fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
   rencanaDesc: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: 4 },
   rencanaDate: { fontSize: FontSize.xs, color: Colors.textMuted },
@@ -221,20 +255,33 @@ const styles = StyleSheet.create({
   ctaSection: { marginTop: Spacing.sm },
   ctaGrid: { flexDirection: 'row', gap: Spacing.sm },
   ctaCard: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: 16,
-    padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    alignItems: 'center',
+    ...Shadows.card,
   },
-  ctaCardDisabled: { opacity: 0.5 },
-  ctaIcon: { fontSize: 32, marginBottom: 8 },
-  ctaIconDisabled: { opacity: 0.4 },
+  ctaCardDisabled: { opacity: 0.45 },
+  ctaIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: Colors.infoSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  ctaIconBgDisabled: { backgroundColor: Colors.surfaceAlt },
+  ctaIcon: { fontSize: 24 },
   ctaLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
   ctaLabelDisabled: { color: Colors.textMuted },
   ctaDesc: { fontSize: FontSize.xs, color: Colors.textSecondary, textAlign: 'center', marginTop: 2 },
   ctaDescDisabled: { color: Colors.textMuted },
   recentSection: { marginTop: Spacing.md },
-  recentCard: { marginBottom: Spacing.sm, padding: Spacing.md },
+  recentCard: { marginBottom: Spacing.sm },
   recentCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   recentCardLeft: { flex: 1, marginRight: Spacing.sm },
   recentNominal: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },

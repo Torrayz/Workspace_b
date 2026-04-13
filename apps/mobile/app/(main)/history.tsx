@@ -1,20 +1,49 @@
 // ============================================================================
-// History Screen — FlashList laporan milik sendiri
+// History Screen — Laporan milik sendiri, grouped by month
+// Redesign v2: Tinted cards, month sections, foto link, modern styling
 // ============================================================================
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useLaporan, type Laporan } from '@/hooks/useLaporan';
 import { Card } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/Badge';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import { CardSkeleton } from '@/components/ui/Skeleton';
-import { Colors, FontSize, Spacing } from '@/constants/theme';
+import {
+  Colors,
+  FontSize,
+  Spacing,
+  Shadows,
+  HeaderStyle,
+  StatusConfig,
+} from '@/constants/theme';
 import { formatRupiah, formatDate } from '@/lib/formatters';
 
+// ── Group by month helper ───────────────────────────────────────────────────
+function groupByMonth(items: Laporan[]): { title: string; data: Laporan[] }[] {
+  const groups: Record<string, Laporan[]> = {};
+  for (const item of items) {
+    const monthKey = new Date(item.tanggal_penagihan).toLocaleDateString('id-ID', {
+      month: 'long',
+      year: 'numeric',
+    }).toUpperCase();
+    if (!groups[monthKey]) groups[monthKey] = [];
+    groups[monthKey]!.push(item);
+  }
+  return Object.entries(groups).map(([title, data]) => ({ title, data }));
+}
+
 function LaporanItem({ item }: { item: Laporan }) {
+  const statusKey = (item.status as keyof typeof StatusConfig) || 'pending';
+  const config = StatusConfig[statusKey] || StatusConfig.pending;
+
   return (
-    <Card style={styles.laporanCard}>
+    <Card
+      style={[styles.laporanCard, { backgroundColor: config.softBg }]}
+      leftBorderColor={config.borderColor}
+    >
       <View style={styles.cardRow}>
         <View style={styles.cardLeft}>
           <Text style={styles.laporanLabel}>Jumlah Tagihan</Text>
@@ -26,14 +55,14 @@ function LaporanItem({ item }: { item: Laporan }) {
             </Text>
           )}
         </View>
-        <StatusBadge status={item.status} />
+        <StatusBadge status={statusKey} />
       </View>
 
       {/* Foto thumbnails */}
       {item.foto_urls && item.foto_urls.length > 0 && (
         <View style={styles.fotoRow}>
           <Text style={styles.fotoCount}>
-            📷 {item.foto_urls.length} foto
+            📷 {item.foto_urls.length} foto bukti terlampir
           </Text>
         </View>
       )}
@@ -51,9 +80,22 @@ export default function HistoryScreen() {
     fetchLaporan();
   }, []);
 
+  // Build flat data with month section headers
+  const groupedData = useMemo(() => groupByMonth(laporan), [laporan]);
+  const flatData = useMemo(() => {
+    const result: any[] = [];
+    for (const group of groupedData) {
+      result.push({ type: 'header', title: group.title, id: `header-${group.title}` });
+      for (const item of group.data) {
+        result.push({ type: 'item', ...item });
+      }
+    }
+    return result;
+  }, [groupedData]);
+
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header — Rounded bottom */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>History Laporan</Text>
         <Text style={styles.headerSubtitle}>{laporan.length} laporan dikirim</Text>
@@ -73,11 +115,16 @@ export default function HistoryScreen() {
         </View>
       ) : (
         <SafeFlashList
-          data={laporan}
-          estimatedItemSize={120}
+          data={flatData}
+          estimatedItemSize={140}
           keyExtractor={(item: any) => item.id}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }: any) => <LaporanItem item={item} />}
+          renderItem={({ item }: any) => {
+            if (item.type === 'header') {
+              return <SectionHeader title={item.title} />;
+            }
+            return <LaporanItem item={item} />;
+          }}
           showsVerticalScrollIndicator={false}
           onRefresh={fetchLaporan}
           refreshing={loading}
@@ -89,25 +136,35 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  // ── Header ────────────────────────────────────────────────
   header: {
     backgroundColor: Colors.primary,
     paddingTop: 52,
     paddingBottom: 20,
     paddingHorizontal: Spacing.lg,
+    ...HeaderStyle,
+    ...Shadows.header,
   },
   headerTitle: { fontSize: FontSize.xl, fontWeight: '700', color: '#FFF' },
-  headerSubtitle: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  headerSubtitle: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
+  // ── List ──────────────────────────────────────────────────
   listContainer: { padding: Spacing.lg },
-  listContent: { padding: Spacing.lg, paddingBottom: 80 },
-  laporanCard: { marginBottom: Spacing.sm, padding: Spacing.md },
+  listContent: { padding: Spacing.lg, paddingBottom: 100 },
+  laporanCard: { marginBottom: Spacing.sm },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardLeft: { flex: 1, marginRight: Spacing.sm },
-  laporanLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-  laporanNominal: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
+  laporanLabel: {
+    fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
+  },
+  laporanNominal: {
+    fontSize: FontSize.xl, fontWeight: '700', color: Colors.textPrimary,
+  },
   laporanDate: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  keterangan: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4, lineHeight: 18 },
-  fotoRow: { marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  keterangan: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 6, lineHeight: 18 },
+  fotoRow: { marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.borderLight },
   fotoCount: { fontSize: FontSize.xs, color: Colors.textMuted },
+  // ── Empty ─────────────────────────────────────────────────
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl },
   emptyIcon: { fontSize: 48, marginBottom: Spacing.md },
   emptyTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary, marginBottom: 6 },

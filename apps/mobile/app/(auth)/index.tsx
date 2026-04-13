@@ -1,6 +1,7 @@
 // ============================================================================
 // Splash + GPS Check Screen
 // Entry point: cek session → cek GPS → arahkan ke halaman yang tepat
+// Redesign v2: Polished logo, updated subtitle
 // ============================================================================
 
 import { useEffect } from 'react';
@@ -8,7 +9,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { useLocation } from '@/hooks/useLocation';
-import { Colors, FontSize, Spacing } from '@/constants/theme';
+import { Colors, FontSize, Spacing, Shadows } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
 
 export default function SplashScreen() {
@@ -45,7 +46,7 @@ export default function SplashScreen() {
           <Text style={styles.logoText}>FM</Text>
         </View>
         <Text style={styles.title}>Field Marketing</Text>
-        <Text style={styles.subtitle}>Sistem Pelaporan</Text>
+        <Text style={styles.subtitle}>Sistem Penagihan & Pelaporan</Text>
         <ActivityIndicator color={Colors.accent} size="large" style={styles.loader} />
       </View>
     );
@@ -58,7 +59,8 @@ export default function SplashScreen() {
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>FM</Text>
         </View>
-        <View style={styles.gpsBlockContainer}>
+
+        <View style={styles.gpsCard}>
           <Text style={styles.gpsBlockIcon}>📍</Text>
           <Text style={styles.gpsBlockTitle}>Lokasi GPS Diperlukan</Text>
           <Text style={styles.gpsBlockDesc}>
@@ -72,6 +74,7 @@ export default function SplashScreen() {
             label="Aktifkan Lokasi"
             onPress={requestPermission}
             fullWidth
+            showArrow
             style={styles.gpsButton}
           />
         </View>
@@ -101,21 +104,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 96,
+    height: 96,
+    borderRadius: 24,
     backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Shadows.fab,
   },
   logoText: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -123,7 +122,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize['2xl'],
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   subtitle: {
     fontSize: FontSize.sm,
@@ -133,9 +132,14 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: Spacing.lg,
   },
-  gpsBlockContainer: {
+  gpsCard: {
     width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    padding: Spacing.lg,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   gpsBlockIcon: {
     fontSize: 48,
