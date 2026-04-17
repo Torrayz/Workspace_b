@@ -1,3 +1,4 @@
+import React from 'react';
 // ============================================================================
 // SectionHeader — Date group divider for lists
 // e.g. "23 MARET 2026" with horizontal lines

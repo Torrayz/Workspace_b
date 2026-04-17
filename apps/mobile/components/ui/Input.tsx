@@ -1,3 +1,4 @@
+import React from 'react';
 // ============================================================================
 // Input Component — Text input dengan label, error, prefix/suffix
 // Redesign v2: More rounded borders, prominent focus state

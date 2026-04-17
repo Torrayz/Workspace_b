@@ -58,6 +58,7 @@ export async function getLaporanList(options: {
   startDate: string;
   endDate: string;
   status?: string | null;
+  userId?: string | null;
   limit?: number;
   offset?: number;
 }): Promise<{ data: any[]; count: number }> {
@@ -68,6 +69,7 @@ export async function getLaporanList(options: {
     .select(`
       id,
       jumlah_tagihan,
+      tanggal_penagihan,
       status,
       keterangan,
       foto_urls,
@@ -83,6 +85,10 @@ export async function getLaporanList(options: {
     query = query.eq('status', options.status);
   }
 
+  if (options.userId) {
+    query = query.eq('user_id', options.userId);
+  }
+
   if (options.limit) {
     query = query.range(options.offset || 0, (options.offset || 0) + options.limit - 1);
   }
@@ -94,7 +100,7 @@ export async function getLaporanList(options: {
     data: (data || []).map((row: any) => ({
       id: row.id,
       user_nama: row.users?.nama || 'Unknown',
-      tanggal_penagihan: row.created_at,
+      tanggal_penagihan: row.tanggal_penagihan || row.created_at,
       jumlah_tagihan: row.jumlah_tagihan,
       rencana_target_nominal: row.rencana?.target_nominal || 0,
       status: row.status,
@@ -352,3 +358,142 @@ export async function getExportData(startDate: string, endDate: string) {
   };
 }
 
+// ── Delete Request Management ───────────────────────────────────────────────
+
+export async function getDeleteRequests() {
+  const authUser = await getAuthUser();
+  if (!authUser || !['admin', 'superadmin'].includes(authUser.role)) {
+    throw new Error('Unauthorized');
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('rencana')
+    .select(`
+      id, user_id, target_nominal, deskripsi, tanggal_target, status,
+      delete_status, delete_reason, delete_requested_at,
+      delete_admin_note, delete_reviewed_by, created_at,
+      users!rencana_user_id_fkey ( nama, nomor_induk )
+    `)
+    .eq('delete_status', 'pending')
+    .order('delete_requested_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    user_id: r.user_id,
+    user_nama: r.users?.nama || 'Unknown',
+    user_nomor_induk: r.users?.nomor_induk || '-',
+    target_nominal: r.target_nominal,
+    deskripsi: r.deskripsi,
+    tanggal_target: r.tanggal_target,
+    status: r.status,
+    delete_reason: r.delete_reason,
+    delete_requested_at: r.delete_requested_at,
+    created_at: r.created_at,
+  }));
+}
+
+export async function approveDeleteRequest(rencanaId: string, adminNote: string) {
+  const authUser = await getAuthUser();
+  if (!authUser || !['admin', 'superadmin'].includes(authUser.role)) {
+    throw new Error('Unauthorized');
+  }
+
+  const supabase = createSupabaseAdminClient();
+
+  // 1. Hapus semua laporan terkait rencana ini (FK constraint ON DELETE RESTRICT)
+  const { error: laporanDeleteError } = await supabase
+    .from('laporan')
+    .delete()
+    .eq('rencana_id', rencanaId);
+
+  if (laporanDeleteError) throw new Error('Gagal menghapus laporan terkait: ' + laporanDeleteError.message);
+
+  // 2. Hapus rencana dari database (hard delete)
+  const { error: deleteError } = await supabase
+    .from('rencana')
+    .delete()
+    .eq('id', rencanaId);
+
+  if (deleteError) throw new Error('Gagal menghapus rencana: ' + deleteError.message);
+
+  return { success: true };
+}
+
+export async function rejectDeleteRequest(rencanaId: string, adminNote: string) {
+  const authUser = await getAuthUser();
+  if (!authUser || !['admin', 'superadmin'].includes(authUser.role)) {
+    throw new Error('Unauthorized');
+  }
+
+  const supabase = createSupabaseAdminClient();
+
+  const { error } = await supabase
+    .from('rencana')
+    .update({
+      delete_status: 'rejected',
+      delete_admin_note: adminNote || 'Ditolak',
+      delete_reviewed_by: authUser.id,
+    })
+    .eq('id', rencanaId)
+    .eq('delete_status', 'pending');
+
+  if (error) throw error;
+
+  return { success: true };
+}
+
+// ── Delete User (cascade) ───────────────────────────────────────────────────
+
+export async function deleteUser(userId: string) {
+  const authUser = await getAuthUser();
+  if (!authUser || authUser.role !== 'superadmin') {
+    throw new Error('Hanya Superadmin yang dapat menghapus user');
+  }
+
+  // Tidak boleh hapus diri sendiri
+  if (authUser.id === userId) {
+    throw new Error('Tidak dapat menghapus akun sendiri');
+  }
+
+  const supabase = createSupabaseAdminClient();
+
+  // 1. Hapus semua laporan milik user
+  await supabase.from('laporan').delete().eq('user_id', userId);
+
+  // 2. Hapus semua rencana milik user
+  await supabase.from('rencana').delete().eq('user_id', userId);
+
+  // 3. Hapus lokasi user (user_locations PK = user_id, ON DELETE CASCADE — tapi manual lebih aman)
+  await supabase.from('user_locations').delete().eq('user_id', userId);
+
+  // 4. Set NULL pada audit_logs (FK ON DELETE SET NULL — otomatis, tapi tidak masalah)
+
+  // 5. Hapus user
+  const { error } = await supabase.from('users').delete().eq('id', userId);
+  if (error) throw new Error('Gagal menghapus user: ' + error.message);
+
+  return { success: true };
+}
+
+// ── Get Users for Filter Dropdown ───────────────────────────────────────────
+
+export async function getUsersForFilter() {
+  const authUser = await getAuthUser();
+  if (!authUser || !['admin', 'superadmin'].includes(authUser.role)) {
+    throw new Error('Unauthorized');
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, nama, nomor_induk')
+    .eq('role', 'user')
+    .eq('is_active', true)
+    .order('nama');
+
+  if (error) throw error;
+  return data || [];
+}

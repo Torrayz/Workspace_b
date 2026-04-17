@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { formatDateShort } from '@/lib/formatters';
-import { UserPlus, Search, AlertTriangle } from 'lucide-react';
+import { UserPlus, Search, AlertTriangle, Trash2 } from 'lucide-react';
 
 interface UserItem {
   id: string;
@@ -24,6 +24,7 @@ interface UserTableProps {
   onToggleActive: (userId: string, currentStatus: boolean) => void;
   onChangeRole: (userId: string, newRole: string) => void;
   onAddUser: () => void;
+  onDeleteUser?: (userId: string, userName: string) => void;
   loading?: boolean;
 }
 
@@ -38,6 +39,7 @@ export function UserTable({
   onToggleActive,
   onChangeRole,
   onAddUser,
+  onDeleteUser,
   loading,
 }: UserTableProps) {
   const [search, setSearch] = useState('');
@@ -159,7 +161,25 @@ export function UserTable({
                       <option value="admin">Admin</option>
                     </select>
                   )}
-                </td>
+                  {user.role !== 'superadmin' && onDeleteUser && (
+                    <button
+                      onClick={() => {
+                        setConfirmAction({
+                          userId: user.id,
+                          action: 'hapus',
+                          message: `PERINGATAN: Semua data (rencana, laporan, lokasi) milik ${user.nama} akan dihapus permanen. Lanjutkan?`,
+                          onConfirm: () => {
+                            onDeleteUser(user.id, user.nama);
+                            setConfirmAction(null);
+                          },
+                        });
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      title="Hapus user"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}</td>
               </tr>
             ))}
           </tbody>

@@ -66,7 +66,7 @@ export function useDashboardData(startDate: string, endDate: string) {
   };
 }
 
-export function useLaporanData(startDate: string, endDate: string, status: string | null, page: number, limit = 10) {
+export function useLaporanData(startDate: string, endDate: string, status: string | null, page: number, limit = 10, userId: string | null = null) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -75,7 +75,7 @@ export function useLaporanData(startDate: string, endDate: string, status: strin
     setLoading(true);
     try {
       const offset = (page - 1) * limit;
-      const res = await getLaporanList({ startDate, endDate, status, limit, offset });
+      const res = await getLaporanList({ startDate, endDate, status, userId, limit, offset });
       setData(res.data);
       setTotalCount(res.count);
     } catch (err) {
@@ -87,7 +87,7 @@ export function useLaporanData(startDate: string, endDate: string, status: strin
 
   useEffect(() => {
     fetchData();
-  }, [startDate, endDate, status, page, limit]);
+  }, [startDate, endDate, status, page, limit, userId]);
 
   return {
     laporan: data,

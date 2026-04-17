@@ -1,25 +1,37 @@
+# ================================================================
+# Field Marketing System — .gitignore
+# ================================================================
+
 # Dependencies
 node_modules/
 .pnp
 .pnp.js
+.yarn/install-state.gz
 
-# Environment variables
+# Environment variables (SANGAT PENTING — jangan commit secrets!)
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 *.env
 
-# Next.js Build outputs
+# ================================================================
+# Next.js (Web Dashboard)
+# ================================================================
 .next/
 out/
 build/
+.vercel
 
-# Expo / React Native
+# ================================================================
+# Expo / React Native (Mobile App)
+# ================================================================
 .expo/
 dist/
 web-build/
+expo-env.d.ts
 *.jks
 *.p8
 *.p12
@@ -27,37 +39,84 @@ web-build/
 *.mobileprovision
 *.orig.*
 
+# Generated native folders (Expo)
+ios/
+android/
+
+# Metro
+.metro-health-check*
+
+# ================================================================
 # TypeScript
+# ================================================================
 *.tsbuildinfo
 next-env.d.ts
 
-# IDE / Editor files
+# ================================================================
+# IDE / Editor
+# ================================================================
 .vscode/*
 !.vscode/extensions.json
 !.vscode/tasks.json
 !.vscode/launch.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
 *~
+
+# ================================================================
+# macOS / Windows / Linux
+# ================================================================
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.lnk
 
+# ================================================================
 # Logs
-logs
+# ================================================================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Cache & tools
+# ================================================================
+# Cache & Build Tools
+# ================================================================
 .eslintcache
 .turbo/
+.cache/
 
+# ================================================================
 # Supabase
+# ================================================================
 supabase/.temp/
 
-# Test coverage
+# ================================================================
+# Test Coverage
+# ================================================================
 coverage/
 .nyc_output/
+
+# ================================================================
+# Lock files (opsional — uncomment jika ingin ignore)
+# Catatan: package-lock.json sebaiknya di-commit agar semua
+# tim pakai versi dependency yang SAMA. Jangan uncomment ini
+# kecuali ada alasan kuat.
+# ================================================================
+# package-lock.json
+
+# ================================================================
+# File catatan internal / dev notes (tidak perlu di repo)
+# ================================================================
+notes.md
+COMPLETION_REPORT.md
+PROJECT_STATUS.md
+MIGRATIONS_VERIFICATION.md
+MOBILE_ADMIN_INTEGRATION_GUIDE.md
+SUPABASE_DEPLOYMENT.md
+CHANGELOG.md

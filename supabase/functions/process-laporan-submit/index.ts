@@ -30,18 +30,18 @@ const cryptoKey = await crypto.subtle.importKey(
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-custom-token',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 /** Validasi JWT dan extract payload */
 async function validateAuth(req: Request): Promise<{ sub: string; role: string } | null> {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
+  // Custom JWT dikirim via x-custom-token (karena Authorization dipakai anon key untuk gateway)
+  const customToken = req.headers.get('x-custom-token');
+  if (!customToken) return null;
 
   try {
-    const token = authHeader.slice(7);
-    const payload = await verify(token, cryptoKey);
+    const payload = await verify(customToken, cryptoKey);
     return payload as unknown as { sub: string; role: string };
   } catch {
     return null;
@@ -86,7 +86,6 @@ serve(async (req: Request) => {
     if (!foto_urls || !Array.isArray(foto_urls) || foto_urls.length === 0) {
       errors.push('Minimal 1 foto bukti wajib diupload');
     }
-    if (!lokasi_alamat) errors.push('Alamat lokasi wajib tersedia');
     if (!status) errors.push('Status laporan wajib dipilih');
 
     // 4. Validasi GPS bounds Indonesia
@@ -117,7 +116,7 @@ serve(async (req: Request) => {
 
     const { data: rencana, error: rencanaError } = await supabase
       .from('rencana')
-      .select('id, user_id, status')
+      .select('id, user_id, status, target_nominal, tanggal_target')
       .eq('id', rencana_id)
       .single();
 
@@ -153,7 +152,7 @@ serve(async (req: Request) => {
         foto_urls,
         lokasi_lat,
         lokasi_lng,
-        lokasi_alamat,
+        lokasi_alamat: lokasi_alamat || '-',
         keterangan: keterangan?.trim() || null,
         status,
       })
@@ -168,13 +167,41 @@ serve(async (req: Request) => {
       );
     }
 
-    // 7. Update status rencana menjadi 'selesai'
-    await supabase
-      .from('rencana')
-      .update({ status: 'selesai' })
-      .eq('id', rencana_id);
+    // 7. Hitung TOTAL tagihan yang sudah terkumpul untuk rencana ini (semua laporan)
+    const { data: laporanSum } = await supabase
+      .from('laporan')
+      .select('jumlah_tagihan')
+      .eq('rencana_id', rencana_id);
 
-    // 8. Audit log
+    const totalCollected = (laporanSum || []).reduce(
+      (sum: number, l: any) => sum + Number(l.jumlah_tagihan || 0),
+      0,
+    );
+
+    // 8. Update status rencana berdasarkan total terkumpul vs target
+    let newRencanaStatus = 'aktif';
+    const now = new Date();
+    const deadline = new Date(rencana.tanggal_target);
+    // Set deadline ke akhir hari (23:59:59)
+    deadline.setHours(23, 59, 59, 999);
+
+    if (totalCollected >= rencana.target_nominal) {
+      // Target tercapai → selesai
+      newRencanaStatus = 'selesai';
+    } else if (now > deadline) {
+      // Melewati deadline tapi target belum tercapai → terlambat (gagal)
+      newRencanaStatus = 'terlambat';
+    }
+    // Jika belum deadline dan belum lunas → tetap 'aktif'
+
+    if (newRencanaStatus !== rencana.status) {
+      await supabase
+        .from('rencana')
+        .update({ status: newRencanaStatus })
+        .eq('id', rencana_id);
+    }
+
+    // 9. Audit log
     await supabase.from('audit_logs').insert({
       user_id: auth.sub,
       action: 'submit_laporan',
@@ -182,14 +209,22 @@ serve(async (req: Request) => {
         laporan_id: laporan.id,
         rencana_id,
         jumlah_tagihan,
+        total_collected: totalCollected,
+        target_nominal: rencana.target_nominal,
+        rencana_status: newRencanaStatus,
         status,
       },
       ip_address: req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip'),
     });
 
-    // 9. Success response
+    // 10. Success response
     return new Response(
-      JSON.stringify({ laporan_id: laporan.id }),
+      JSON.stringify({
+        laporan_id: laporan.id,
+        total_collected: totalCollected,
+        target_nominal: rencana.target_nominal,
+        rencana_status: newRencanaStatus,
+      }),
       { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {

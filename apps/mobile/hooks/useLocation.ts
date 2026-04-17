@@ -60,8 +60,8 @@ export function useLocation() {
       await supabase.from('user_locations').upsert(
         {
           user_id: user.id,
-          latitude: lat,
-          longitude: lng,
+          lat: lat,
+          lng: lng,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' },

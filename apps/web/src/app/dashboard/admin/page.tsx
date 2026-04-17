@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { KPICard } from '@/components/features/dashboard/KPICard';
 import { FilterBar } from '@/components/features/dashboard/FilterBar';
@@ -11,9 +11,9 @@ import { LaporanTable } from '@/components/features/dashboard/LaporanTable';
 import { RealtimeMap } from '@/components/features/maps/RealtimeMap';
 import { DownloadModal } from '@/components/features/reports/DownloadModal';
 import { formatRupiah, formatPercentage, formatNumber } from '@/lib/formatters';
-import { FileText, DollarSign, Target, Users } from 'lucide-react';
+import { FileText, DollarSign, Target, Users, User } from 'lucide-react';
 import { useDashboardData, useLaporanData } from '@/hooks/useDashboardData';
-import { getExportData } from '@/app/dashboard/actions';
+import { getExportData, getUsersForFilter } from '@/app/dashboard/actions';
 
 export default function AdminDashboardPage() {
   const [startDate, setStartDate] = useState(() => {
@@ -29,9 +29,16 @@ export default function AdminDashboardPage() {
   // Laporan table data
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const { laporan, totalPages, loading: loadingTable, refresh: refreshTable } = useLaporanData(startDate, endDate, statusFilter, currentPage, 10);
+  const [userFilter, setUserFilter] = useState<string | null>(null);
+  const [userList, setUserList] = useState<{ id: string; nama: string; nomor_induk: string }[]>([]);
+  const { laporan, totalPages, loading: loadingTable, refresh: refreshTable } = useLaporanData(startDate, endDate, statusFilter, currentPage, 10, userFilter);
 
   const [downloadOpen, setDownloadOpen] = useState(false);
+
+  // Fetch users for filter dropdown
+  useEffect(() => {
+    getUsersForFilter().then(setUserList).catch(console.error);
+  }, []);
 
   const handleRefresh = () => {
     refreshDashboard();
@@ -199,6 +206,37 @@ export default function AdminDashboardPage() {
           onDownload={() => setDownloadOpen(true)}
           loading={loading || loadingTable}
         />
+      </div>
+
+      {/* User Filter */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <User size={16} />
+          <span className="font-medium">Filter User:</span>
+        </div>
+        <select
+          value={userFilter || ''}
+          onChange={(e) => {
+            setUserFilter(e.target.value || null);
+            setCurrentPage(1);
+          }}
+          className="input !w-auto !py-1.5 !text-sm"
+        >
+          <option value="">Semua User</option>
+          {userList.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.nama} ({u.nomor_induk})
+            </option>
+          ))}
+        </select>
+        {userFilter && (
+          <button
+            onClick={() => { setUserFilter(null); setCurrentPage(1); }}
+            className="text-xs text-accent hover:underline"
+          >
+            Reset
+          </button>
+        )}
       </div>
 
       {/* KPI Cards */}

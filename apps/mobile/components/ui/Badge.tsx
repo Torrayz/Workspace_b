@@ -1,3 +1,4 @@
+import React from 'react';
 // ============================================================================
 // Badge Component — Status pill dengan warna + icon
 // Redesign v2: Slightly bigger, bolder, icon support

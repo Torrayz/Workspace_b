@@ -1,6 +1,5 @@
 // ============================================================================
-// Login Screen — Input Nomor Induk → konfirmasi nama → masuk
-// Redesign v2: Split dark/white layout, matching design reference
+// Login Screen — Modern glassmorphism design with compact layout
 // ============================================================================
 
 import { useState } from 'react';
@@ -23,6 +22,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Colors, FontSize, Spacing, Shadows, BorderRadius } from '@/constants/theme';
 import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl || '';
 const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey || '';
@@ -86,6 +86,16 @@ export default function LoginScreen() {
         return;
       }
 
+      // Block admin/superadmin dari mobile
+      const userRole = (result as ValidationResult).user.role;
+      if (userRole === 'admin' || userRole === 'superadmin') {
+        Alert.alert(
+          'Akses Ditolak',
+          'Akun Admin dan Superadmin hanya bisa mengakses Dashboard Web.\n\nGunakan browser untuk login di dashboard.',
+        );
+        return;
+      }
+
       setValidatedUser(result as ValidationResult);
       setStep('confirm');
     } catch {
@@ -127,27 +137,41 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <LinearGradient
+        colors={['#0F172A', '#1E3A5F', '#1E40AF']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Decorative circles */}
+      <View style={styles.circle1} />
+      <View style={styles.circle2} />
+      <View style={styles.circle3} />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         bounces={false}
       >
-        {/* Dark Navy Header Section */}
-        <View style={styles.header}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>FM</Text>
+        {/* Logo + Branding */}
+        <View style={styles.brandSection}>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoInner}>
+              <Text style={styles.logoText}>FM</Text>
+            </View>
           </View>
-          <Text style={styles.title}>Field Marketing</Text>
-          <Text style={styles.subtitle}>Sistem Penagihan & Pelaporan</Text>
+          <Text style={styles.brandTitle}>Field Marketing</Text>
+          <Text style={styles.brandSub}>Sistem Penagihan & Pelaporan</Text>
         </View>
 
-        {/* White Form Section */}
-        <View style={styles.formSection}>
+        {/* Glass Card Form */}
+        <View style={styles.glassCard}>
           {step === 'input' ? (
             <>
-              <Text style={styles.formTitle}>Masuk ke Akun</Text>
+              <Text style={styles.formTitle}>Masuk</Text>
               <Text style={styles.formDesc}>
-                Masukkan Nomor Induk Karyawan Anda.
+                Masukkan Nomor Induk Karyawan
               </Text>
 
               <Controller
@@ -180,21 +204,30 @@ export default function LoginScreen() {
               />
             </>
           ) : (
-            // Step konfirmasi identitas
             <>
-              <View style={styles.confirmHeader}>
-                <View style={styles.confirmDot} />
-                <Text style={styles.confirmTitle}>Konfirmasi Identitas</Text>
+              <View style={styles.confirmBadge}>
+                <Text style={styles.confirmBadgeText}>Konfirmasi</Text>
               </View>
 
-              <View style={styles.infoBox}>
-                <InfoRow label="Nama" value={validatedUser?.user.nama || ''} />
-                <InfoRow label="No. Induk" value={getValues('nomor_induk')} />
-                <InfoRow
-                  label="Rekening"
-                  value={validatedUser?.user.nomor_rekening || ''}
-                  isLast
-                />
+              <View style={styles.profileSection}>
+                <View style={styles.profileAvatar}>
+                  <Text style={styles.profileAvatarText}>
+                    {validatedUser?.user.nama?.charAt(0).toUpperCase() || 'U'}
+                  </Text>
+                </View>
+                <Text style={styles.profileName}>{validatedUser?.user.nama}</Text>
+                <Text style={styles.profileId}>{getValues('nomor_induk')}</Text>
+              </View>
+
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Rekening</Text>
+                  <Text style={styles.infoValue}>{validatedUser?.user.nomor_rekening || '-'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Role</Text>
+                  <Text style={styles.infoValue}>{validatedUser?.user.role || '-'}</Text>
+                </View>
               </View>
 
               <View style={styles.confirmButtons}>
@@ -206,10 +239,11 @@ export default function LoginScreen() {
                   disabled={loading}
                 />
                 <Button
-                  label="Ya, Masuk"
+                  label="Masuk"
                   onPress={onConfirm}
                   loading={loading}
                   style={styles.confirmBtnRight}
+                  showArrow
                 />
               </View>
             </>
@@ -226,154 +260,190 @@ export default function LoginScreen() {
   );
 }
 
-function InfoRow({ label, value, isLast = false }: { label: string; value: string; isLast?: boolean }) {
-  return (
-    <View style={[infoStyles.row, isLast && infoStyles.rowLast]}>
-      <Text style={infoStyles.label}>{label}</Text>
-      <Text style={infoStyles.value}>{value}</Text>
-    </View>
-  );
-}
-
-const infoStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  rowLast: {
-    borderBottomWidth: 0,
-  },
-  label: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  value: {
-    fontSize: FontSize.sm,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: Spacing.md,
-  },
-});
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  // ── Header (dark navy top) ─────────────────────────────
-  header: {
-    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.lg,
     paddingTop: 80,
-    paddingBottom: 48,
-    paddingHorizontal: Spacing.lg,
+    paddingBottom: 40,
   },
-  logo: {
-    width: 80,
-    height: 80,
+  // ── Decorative circles ─────────────────────────────────
+  circle1: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+    top: -80,
+    right: -80,
+  },
+  circle2: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(37, 99, 235, 0.06)',
+    bottom: 100,
+    left: -60,
+  },
+  circle3: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    top: '40%' as any,
+    right: 30,
+  },
+  // ── Branding ───────────────────────────────────────────
+  brandSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  logoContainer: {
+    width: 72,
+    height: 72,
     borderRadius: 22,
-    backgroundColor: Colors.accent,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  logoInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Shadows.fab,
   },
   logoText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 1,
   },
-  title: {
+  brandTitle: {
     fontSize: FontSize['2xl'],
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.5,
   },
-  subtitle: {
+  brandSub: {
     fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: 4,
   },
-
-  // ── Form section (white bottom) ─────────────────────────
-  formSection: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: BorderRadius['3xl'],
-    borderTopRightRadius: BorderRadius['3xl'],
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.lg,
-    ...Shadows.header,
+  // ── Glass Card ─────────────────────────────────────────
+  glassCard: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    ...Shadows.cardHover,
   },
   formTitle: {
     fontSize: FontSize.xl,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 6,
     textAlign: 'center',
+    marginBottom: 4,
   },
   formDesc: {
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
-    marginBottom: Spacing.lg,
-    lineHeight: 20,
     textAlign: 'center',
+    marginBottom: Spacing.lg,
   },
-
-  // ── Confirm step ────────────────────────────────────────
-  confirmHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  // ── Confirm step ───────────────────────────────────────
+  confirmBadge: {
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: Colors.infoSoft,
     marginBottom: Spacing.md,
   },
-  confirmDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.accent,
-    marginRight: Spacing.sm,
-  },
-  confirmTitle: {
-    fontSize: FontSize.base,
-    fontWeight: '600',
+  confirmBadgeText: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
     color: Colors.accent,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  infoBox: {
+  profileSection: {
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  profileAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+    ...Shadows.fab,
+  },
+  profileAvatarText: {
+    fontSize: FontSize['2xl'],
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  profileName: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  profileId: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  infoItem: {
+    flex: 1,
     backgroundColor: Colors.background,
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
+    padding: Spacing.sm,
+    alignItems: 'center',
+  },
+  infoLabel: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
   confirmButtons: {
     flexDirection: 'row',
     gap: Spacing.sm,
   },
-  confirmBtnLeft: {
-    flex: 1,
-  },
-  confirmBtnRight: {
-    flex: 1,
-  },
-
+  confirmBtnLeft: { flex: 1 },
+  confirmBtnRight: { flex: 1 },
   // ── Footer ──────────────────────────────────────────────
   footer: {
     fontSize: FontSize.xs,
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.3)',
     textAlign: 'center',
     lineHeight: 18,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.primary,
+    marginTop: Spacing.lg,
   },
 });

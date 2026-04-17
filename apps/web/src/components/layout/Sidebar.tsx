@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 
 interface NavItem {
@@ -29,6 +30,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Dashboard',
     href: '/dashboard/admin',
     icon: LayoutDashboard,
+    roles: ['admin', 'superadmin'],
+  },
+  {
+    label: 'Persetujuan Hapus',
+    href: '/dashboard/admin/persetujuan-hapus',
+    icon: Trash2,
     roles: ['admin', 'superadmin'],
   },
   {

@@ -1,10 +1,12 @@
+import React from 'react';
 // ============================================================================
 // Form Laporan — Submit laporan dengan foto + GPS auto-capture
 // Redesign v2: Matching Form Kunjungan design with colored status chips,
 // camera upload area, GPS line, and split bottom buttons
 // ============================================================================
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback as useReactCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -27,6 +29,7 @@ import { useRencana } from '@/hooks/useRencana';
 import { useLocation } from '@/hooks/useLocation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   Colors,
   FontSize,
@@ -68,6 +71,7 @@ function formatCurrencyInput(value: string): string {
 export default function BuatLaporanScreen() {
   const [fotoUris, setFotoUris] = useState<string[]>([]);
   const [rencanaAktifList, setRencanaAktifList] = useState<any[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const { submitLaporan, loading, uploadProgress } = useLaporan();
   const { fetchRencanaAktif } = useRencana();
   const { latitude, longitude, getCurrentLocation } = useLocation();
@@ -91,14 +95,39 @@ export default function BuatLaporanScreen() {
 
   const selectedStatus = watch('status');
   const selectedRencanaId = watch('rencana_id');
+  const watchJumlah = watch('jumlah_tagihan');
+  const watchTgl = watch('tanggal_penagihan');
 
   // Get selected rencana for header subtitle
   const selectedRencana = rencanaAktifList.find((r) => r.id === selectedRencanaId);
 
+  // Auto calculate status form
   useEffect(() => {
-    fetchRencanaAktif().then(setRencanaAktifList);
-    getCurrentLocation(); // Update GPS saat form dibuka
-  }, []);
+    if (selectedRencana) {
+      const dh = Number(String(watchJumlah).replace(/\D/g, '') || 0);
+      const target = selectedRencana.target_nominal;
+      const tgl = watchTgl;
+      const deadline = selectedRencana.tanggal_target;
+
+      if (dh >= target) {
+        setValue('status', 'lunas');
+      } else if (tgl > deadline && dh === 0) {
+        setValue('status', 'gagal');
+      } else if (dh > 0) {
+        setValue('status', 'sebagian');
+      } else {
+        setValue('status', 'pending');
+      }
+    }
+  }, [watchJumlah, watchTgl, selectedRencanaId, rencanaAktifList]);
+
+  // Refresh rencana setiap kali screen ini dapat focus (termasuk navigasi balik)
+  useFocusEffect(
+    useReactCallback(() => {
+      fetchRencanaAktif().then(setRencanaAktifList);
+      getCurrentLocation();
+    }, []),
+  );
 
   // ── Ambil foto ────────────────────────────────────────────────────────────
   const pickPhoto = async () => {
@@ -251,14 +280,53 @@ export default function BuatLaporanScreen() {
             control={control}
             name="tanggal_penagihan"
             render={({ field: { onChange, value } }) => (
-              <Input
-                label="Tanggal Penagihan"
-                required
-                placeholder="YYYY-MM-DD"
-                value={value}
-                onChangeText={onChange}
-                error={errors.tanggal_penagihan?.message}
-              />
+              <View style={{ marginBottom: Spacing.md }}>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
+                  <View pointerEvents="none">
+                    <Input
+                      label="Tanggal Penagihan"
+                      required
+                      placeholder="YYYY-MM-DD"
+                      value={value}
+                      editable={false}
+                      error={errors.tanggal_penagihan?.message}
+                    />
+                  </View>
+                  <View style={{ position: 'absolute', right: Spacing.md, top: 38 }}>
+                    <Text style={{ fontSize: 20 }}>📅</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={new Date(value || Date.now())}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      setShowDatePicker(Platform.OS === 'ios');
+                      if (event.type === 'set' && selectedDate) {
+                        const dateString = selectedDate.toISOString().split('T')[0];
+                        if (dateString) {
+                          onChange(dateString);
+                        }
+                        if (Platform.OS === 'android') {
+                          setShowDatePicker(false);
+                        }
+                      } else if (event.type === 'dismissed') {
+                        setShowDatePicker(false);
+                      }
+                    }}
+                  />
+                )}
+                {Platform.OS === 'ios' && showDatePicker && (
+                  <Button 
+                    label="Pilih Tanggal" 
+                    onPress={() => setShowDatePicker(false)} 
+                    size="sm" 
+                    style={{ marginBottom: Spacing.xs, alignSelf: 'flex-end', minWidth: 100 }} 
+                  />
+                )}
+              </View>
             )}
           />
 

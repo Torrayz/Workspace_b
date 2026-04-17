@@ -3,7 +3,7 @@
 // Redesign v2: Dark navy header with FAB, grouped list with date sections
 // ============================================================================
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,11 +15,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRencana } from '@/hooks/useRencana';
+import { useFocusEffect } from 'expo-router';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -87,10 +89,16 @@ function groupByDate(items: any[]): { title: string; data: any[] }[] {
 }
 
 export default function RencanaScreen() {
-  const { rencanaList, loading, fetchRencana, createRencana } = useRencana();
+  const { rencanaList, loading, fetchRencana, createRencana, requestDeleteRencana } = useRencana();
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Delete request state
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; deskripsi: string | null } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const {
     control,
@@ -106,9 +114,12 @@ export default function RencanaScreen() {
     },
   });
 
-  useEffect(() => {
-    fetchRencana();
-  }, []);
+  // Refresh data setiap kali screen dapat focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchRencana();
+    }, []),
+  );
 
   const groupedData = useMemo(() => groupByDate(rencanaList), [rencanaList]);
 
@@ -130,10 +141,33 @@ export default function RencanaScreen() {
     }
   };
 
+  const openDeleteModal = (rencana: { id: string; deskripsi: string | null }) => {
+    setDeleteTarget(rencana);
+    setDeleteReason('');
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteRequest = async () => {
+    if (!deleteTarget) return;
+    if (!deleteReason.trim()) {
+      Alert.alert('Perhatian', 'Alasan penghapusan wajib diisi.');
+      return;
+    }
+    setDeleting(true);
+    const result = await requestDeleteRencana(deleteTarget.id, deleteReason.trim());
+    setDeleting(false);
+    if (result.success) {
+      setDeleteModalVisible(false);
+      Alert.alert('Berhasil', 'Permintaan hapus telah dikirim ke Admin untuk disetujui.');
+    } else {
+      Alert.alert('Gagal', result.error || 'Gagal mengirim permintaan hapus.');
+    }
+  };
+
   const statusMap = {
     aktif: 'pending',
     selesai: 'lunas',
-    batal: 'gagal',
+    terlambat: 'gagal',
   } as const;
 
   // Build flat list data with section headers
@@ -199,6 +233,13 @@ export default function RencanaScreen() {
             }
             const statusKey = getStatusKey(item.status);
             const config = StatusConfig[statusKey];
+            const progressPct = item.progress || 0;
+            const progressColor = item.status === 'selesai'
+              ? Colors.success
+              : item.status === 'terlambat'
+                ? Colors.danger
+                : Colors.accent;
+
             return (
               <Card
                 style={styles.rencanaCard}
@@ -210,16 +251,116 @@ export default function RencanaScreen() {
                       {item.deskripsi || 'Rencana Penagihan'}
                     </Text>
                     <Text style={styles.cardMeta}>
-                      {formatDate(item.tanggal_target)} • {formatRupiah(item.target_nominal)}
+                      Deadline: {formatDate(item.tanggal_target)}
                     </Text>
                   </View>
                   <StatusBadge status={statusKey} />
                 </View>
+
+                {/* Progress bar */}
+                <View style={styles.progressSection}>
+                  <View style={styles.progressLabels}>
+                    <Text style={styles.progressText}>
+                      {formatRupiah(item.total_collected || 0)} / {formatRupiah(item.target_nominal)}
+                    </Text>
+                    <Text style={[styles.progressPct, { color: progressColor }]}>
+                      {progressPct}%
+                    </Text>
+                  </View>
+                  <View style={styles.progressBar}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${progressPct}%`,
+                          backgroundColor: progressColor,
+                        },
+                      ]}
+                    />
+                  </View>
+                  {item.status === 'aktif' && item.sisa > 0 && (
+                    <Text style={styles.sisaText}>
+                      Sisa: {formatRupiah(item.sisa)}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Delete request status / button */}
+                {item.delete_status === 'pending' ? (
+                  <View style={styles.deleteStatusRow}>
+                    <Text style={styles.deleteStatusPending}>⏳ Menunggu persetujuan hapus</Text>
+                  </View>
+                ) : item.delete_status === 'rejected' ? (
+                  <View style={styles.deleteStatusRow}>
+                    <Text style={styles.deleteStatusRejected}>
+                      ❌ Ditolak{item.delete_admin_note ? `: ${item.delete_admin_note}` : ''}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => openDeleteModal({ id: item.id, deskripsi: item.deskripsi })}
+                      style={styles.retryDeleteBtn}
+                    >
+                      <Text style={styles.retryDeleteText}>Ajukan ulang</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : item.delete_status !== 'approved' ? (
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => openDeleteModal({ id: item.id, deskripsi: item.deskripsi })}
+                  >
+                    <Text style={styles.deleteBtnText}>🗑  Hapus Rencana</Text>
+                  </TouchableOpacity>
+                ) : null}
               </Card>
             );
           }}
         />
       )}
+
+      {/* Modal Alasan Hapus */}
+      <Modal
+        visible={deleteModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.deleteOverlay}>
+          <View style={styles.deleteModal}>
+            <Text style={styles.deleteModalTitle}>Hapus Rencana</Text>
+            <Text style={styles.deleteModalDesc}>
+              "{deleteTarget?.deskripsi || 'Rencana Penagihan'}" akan dihapus setelah disetujui Admin.
+            </Text>
+            <Text style={styles.deleteInputLabel}>Alasan Penghapusan *</Text>
+            <TextInput
+              style={styles.deleteInput}
+              placeholder="Contoh: Rencana dibuat salah, nominal tidak sesuai..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              numberOfLines={3}
+              value={deleteReason}
+              onChangeText={setDeleteReason}
+              textAlignVertical="top"
+            />
+            <View style={styles.deleteModalActions}>
+              <TouchableOpacity
+                style={styles.deleteCancelBtn}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={deleting}
+              >
+                <Text style={styles.deleteCancelText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteConfirmBtn, deleting && { opacity: 0.6 }]}
+                onPress={handleDeleteRequest}
+                disabled={deleting}
+              >
+                <Text style={styles.deleteConfirmText}>
+                  {deleting ? 'Mengirim...' : 'Kirim Permintaan'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal Form Buat Rencana */}
       <Modal
@@ -407,6 +548,44 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textMuted,
   },
+  // ── Progress bar ─────────────────────────────────────────
+  progressSection: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  progressText: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  progressPct: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: Colors.borderLight,
+    borderRadius: 3,
+    overflow: 'hidden' as const,
+  },
+  progressFill: {
+    height: '100%' as any,
+    borderRadius: 3,
+  },
+  sisaText: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginTop: 4,
+    fontStyle: 'italic' as const,
+  },
   // ── Empty state ───────────────────────────────────────────
   emptyContainer: { alignItems: 'center', paddingTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: Spacing.md },
@@ -430,4 +609,122 @@ const styles = StyleSheet.create({
   },
   modalBtnLeft: { flex: 1 },
   modalBtnRight: { flex: 2 },
+  // ── Delete request ───────────────────────────────────────
+  deleteStatusRow: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  deleteStatusPending: {
+    fontSize: FontSize.xs,
+    color: Colors.warning,
+    fontWeight: '600',
+  },
+  deleteStatusRejected: {
+    fontSize: FontSize.xs,
+    color: Colors.danger,
+    fontWeight: '600',
+    flex: 1,
+  },
+  retryDeleteBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: Colors.warningLight,
+    borderRadius: BorderRadius.sm,
+  },
+  retryDeleteText: {
+    fontSize: FontSize.xs,
+    color: Colors.warning,
+    fontWeight: '600',
+  },
+  deleteBtn: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    alignItems: 'center',
+  },
+  deleteBtnText: {
+    fontSize: FontSize.xs,
+    color: Colors.danger,
+    fontWeight: '600',
+  },
+  // ── Delete Modal ─────────────────────────────────────────
+  deleteOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  deleteModal: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    ...Shadows.header,
+  },
+  deleteModalTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 6,
+  },
+  deleteModalDesc: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: Spacing.md,
+  },
+  deleteInputLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  deleteInput: {
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    fontSize: FontSize.sm,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+    minHeight: 80,
+    marginBottom: Spacing.md,
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  deleteCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  deleteCancelText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  deleteConfirmBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.danger,
+  },
+  deleteConfirmText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: '#FFF',
+  },
 });

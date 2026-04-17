@@ -3,7 +3,8 @@
 // Redesign v2: Tinted cards, month sections, foto link, modern styling
 // ============================================================================
 
-import { useEffect, useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useLaporan, type Laporan } from '@/hooks/useLaporan';
@@ -76,9 +77,12 @@ export default function HistoryScreen() {
   // Fix for React 19 FlashList estimatedItemSize type issue
   const SafeFlashList = FlashList as any;
 
-  useEffect(() => {
-    fetchLaporan();
-  }, []);
+  // Refresh setiap kali screen mendapat focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchLaporan();
+    }, []),
+  );
 
   // Build flat data with month section headers
   const groupedData = useMemo(() => groupByMonth(laporan), [laporan]);

@@ -1,3 +1,4 @@
+import React from 'react';
 // ============================================================================
 // Card Component — Surface card dengan shadow + optional left border
 // Redesign v2: Bigger shadows, colored left-border support

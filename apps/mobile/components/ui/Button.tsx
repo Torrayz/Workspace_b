@@ -1,3 +1,4 @@
+import React from 'react';
 // ============================================================================
 // Button Component — Primary, Secondary, Outline, Ghost, Danger
 // Redesign v2: More rounded, arrow suffix support

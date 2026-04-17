@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace=apps/web",
-    "dev:mobile": "npm run start --workspace=apps/mobile",
+    "dev:mobile": "cd apps/mobile && EXPO_NO_METRO_WORKSPACE_ROOT=1 npx expo start",
     "build:web": "npm run build --workspace=apps/web",
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
@@ -16,6 +16,10 @@
   "devDependencies": {
     "prettier": "^3.2.5",
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "@types/react": "$@types/react",
+    "@types/react-dom": "$@types/react-dom"
   },
   "engines": {
     "node": ">=20.0.0"

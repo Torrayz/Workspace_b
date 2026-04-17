@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { UserTable } from '@/components/features/users/UserTable';
 import { AddUserModal } from '@/components/features/users/AddUserModal';
-import { getUsers, toggleUserStatus, updateUserRole, createUser } from '@/app/dashboard/actions';
+import { getUsers, toggleUserStatus, updateUserRole, createUser, deleteUser } from '@/app/dashboard/actions';
 import { useToast } from '@/components/ui/Toaster';
 
 export default function UserManagementPage() {
@@ -53,6 +53,16 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    try {
+      await deleteUser(userId);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      toast('success', `User "${userName}" dan semua datanya berhasil dihapus`);
+    } catch (error: any) {
+      toast('error', error.message || 'Gagal menghapus user');
+    }
+  };
+
   const handleAddUser = async (data: {
     nomor_induk: string;
     nama: string;
@@ -74,6 +84,7 @@ export default function UserManagementPage() {
         onToggleActive={handleToggleActive}
         onChangeRole={handleChangeRole}
         onAddUser={() => setAddUserOpen(true)}
+        onDeleteUser={handleDeleteUser}
         loading={loading}
       />
 
