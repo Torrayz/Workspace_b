@@ -6,6 +6,7 @@
 import { useMemo, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useLaporan, type Laporan } from '@/hooks/useLaporan';
 import { Card } from '@/components/ui/Card';
@@ -72,6 +73,7 @@ function LaporanItem({ item }: { item: Laporan }) {
 }
 
 export default function HistoryScreen() {
+  const insets = useSafeAreaInsets();
   const { laporan, loading, fetchLaporan } = useLaporan();
 
   // Fix for React 19 FlashList estimatedItemSize type issue
@@ -99,8 +101,8 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header — Rounded bottom */}
-      <View style={styles.header}>
+      {/* Header — Rounded bottom, dynamic safe area */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
         <Text style={styles.headerTitle}>History Laporan</Text>
         <Text style={styles.headerSubtitle}>{laporan.length} laporan dikirim</Text>
       </View>
@@ -141,9 +143,9 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   // ── Header ────────────────────────────────────────────────
+  // NOTE: paddingTop is set dynamically via insets.top in the component
   header: {
     backgroundColor: Colors.primary,
-    paddingTop: 52,
     paddingBottom: 20,
     paddingHorizontal: Spacing.lg,
     ...HeaderStyle,

@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: Colors.border,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.surface,
@@ -95,7 +95,6 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: Colors.accent,
-    borderWidth: 2,
     backgroundColor: Colors.infoSoft,
   },
   inputError: {
@@ -135,3 +134,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+

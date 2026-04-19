@@ -18,7 +18,9 @@ import {
   TouchableOpacity,
   Alert,
   ActionSheetIOS,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -39,6 +41,12 @@ import {
   HeaderStyle,
   StatusConfig,
 } from '@/constants/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Photo thumb size: 3 columns with gaps
+const PHOTO_GAP = Spacing.sm;
+const PHOTO_COLUMNS = 3;
+const PHOTO_SIZE = Math.floor((SCREEN_WIDTH - Spacing.lg * 2 - PHOTO_GAP * (PHOTO_COLUMNS - 1)) / PHOTO_COLUMNS);
 
 // ── Validasi ────────────────────────────────────────────────────────────────
 const laporanSchema = z.object({
@@ -69,6 +77,7 @@ function formatCurrencyInput(value: string): string {
 }
 
 export default function BuatLaporanScreen() {
+  const insets = useSafeAreaInsets();
   const [fotoUris, setFotoUris] = useState<string[]>([]);
   const [rencanaAktifList, setRencanaAktifList] = useState<any[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -210,8 +219,8 @@ export default function BuatLaporanScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header — Rounded bottom */}
-      <View style={styles.header}>
+      {/* Header — Rounded bottom, dynamic safe area */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backArea}>
           <Text style={styles.backBtn}>←</Text>
         </TouchableOpacity>
@@ -228,12 +237,14 @@ export default function BuatLaporanScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
           style={styles.body}
-          contentContainerStyle={styles.bodyContent}
+          contentContainerStyle={[styles.bodyContent, { paddingBottom: 24 }]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           {/* Pilih Rencana */}
           <View style={styles.fieldContainer}>
@@ -398,15 +409,26 @@ export default function BuatLaporanScreen() {
           <View style={styles.fieldContainer}>
             <Text style={styles.fieldLabel}>Foto Kunjungan</Text>
 
-            {/* Photo thumbnails */}
+            {/* Camera upload area — always on top */}
+            <TouchableOpacity style={styles.fotoUploadArea} onPress={pickPhoto}>
+              <View style={styles.fotoUploadCircle}>
+                <Text style={styles.fotoUploadIcon}>📷</Text>
+              </View>
+              <Text style={styles.fotoUploadText}>
+                Tap untuk ambil foto ({fotoUris.length} foto terpilih)
+              </Text>
+            </TouchableOpacity>
+
+            {/* Photo thumbnails — responsive grid below upload area */}
             {fotoUris.length > 0 && (
               <View style={styles.fotoGrid}>
                 {fotoUris.map((uri) => (
                   <View key={uri} style={styles.fotoThumb}>
-                    <Image source={{ uri }} style={styles.fotoImage} />
+                    <Image source={{ uri }} style={styles.fotoImage} resizeMode="cover" />
                     <TouchableOpacity
                       onPress={() => removePhoto(uri)}
                       style={styles.fotoRemove}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <Text style={styles.fotoRemoveText}>✕</Text>
                     </TouchableOpacity>
@@ -414,14 +436,6 @@ export default function BuatLaporanScreen() {
                 ))}
               </View>
             )}
-
-            {/* Camera upload area */}
-            <TouchableOpacity style={styles.fotoUploadArea} onPress={pickPhoto}>
-              <View style={styles.fotoUploadCircle}>
-                <Text style={styles.fotoUploadIcon}>📷</Text>
-              </View>
-              <Text style={styles.fotoUploadText}>Tap untuk ambil foto</Text>
-            </TouchableOpacity>
           </View>
 
           {/* GPS Info */}
@@ -451,8 +465,8 @@ export default function BuatLaporanScreen() {
           )}
         </ScrollView>
 
-        {/* Footer — Batal + Simpan Kunjungan */}
-        <View style={styles.footer}>
+        {/* Footer — Batal + Simpan Kunjungan, respects bottom safe area */}
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
           <Button
             label="Batal"
             onPress={() => router.back()}
@@ -475,11 +489,11 @@ export default function BuatLaporanScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   // ── Header ────────────────────────────────────────────────
+  // NOTE: paddingTop is set dynamically via insets.top in the component
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.primary,
-    paddingTop: 52,
     paddingBottom: 16,
     paddingHorizontal: Spacing.lg,
     ...HeaderStyle,
@@ -514,7 +528,7 @@ const styles = StyleSheet.create({
   },
   // ── Body ──────────────────────────────────────────────────
   body: { flex: 1 },
-  bodyContent: { padding: Spacing.lg, paddingBottom: 40 },
+  bodyContent: { padding: Spacing.lg },
   fieldContainer: { marginBottom: Spacing.md },
   fieldLabel: {
     fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary,
@@ -553,40 +567,55 @@ const styles = StyleSheet.create({
   },
   statusChipText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600' },
   // ── Foto upload ───────────────────────────────────────────
-  fotoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm },
-  fotoThumb: { position: 'relative', width: 88, height: 88 },
-  fotoImage: { width: 88, height: 88, borderRadius: BorderRadius.md },
+  fotoGrid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    gap: PHOTO_GAP, marginTop: Spacing.sm,
+  },
+  fotoThumb: {
+    position: 'relative',
+    width: PHOTO_SIZE,
+    height: PHOTO_SIZE,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.surfaceAlt,
+  },
+  fotoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: BorderRadius.md,
+  },
   fotoRemove: {
-    position: 'absolute', top: -8, right: -8,
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: Colors.danger,
+    position: 'absolute', top: 4, right: 4,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(220, 38, 38, 0.9)',
     alignItems: 'center', justifyContent: 'center',
     ...Shadows.card,
   },
-  fotoRemoveText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  fotoRemoveText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
   fotoUploadArea: {
     borderWidth: 2,
     borderColor: Colors.border,
     borderStyle: 'dashed',
     borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.lg,
+    paddingVertical: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.surfaceAlt,
+    minHeight: 100,
   },
   fotoUploadCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  fotoUploadIcon: { fontSize: 24 },
-  fotoUploadText: { fontSize: FontSize.xs, color: Colors.textMuted },
+  fotoUploadIcon: { fontSize: 22 },
+  fotoUploadText: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center' },
   // ── GPS ───────────────────────────────────────────────────
   gpsInfo: {
     padding: Spacing.md, backgroundColor: Colors.surface,
@@ -618,10 +647,12 @@ const styles = StyleSheet.create({
   },
   progressFill: { height: '100%', backgroundColor: Colors.accent, borderRadius: 2 },
   // ── Footer ────────────────────────────────────────────────
+  // NOTE: paddingBottom is set dynamically via insets.bottom in the component
   footer: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    padding: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     backgroundColor: Colors.surface,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,

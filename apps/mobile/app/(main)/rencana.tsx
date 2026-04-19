@@ -17,6 +17,7 @@ import {
   Alert,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -89,6 +90,7 @@ function groupByDate(items: any[]): { title: string; data: any[] }[] {
 }
 
 export default function RencanaScreen() {
+  const insets = useSafeAreaInsets();
   const { rencanaList, loading, fetchRencana, createRencana, requestDeleteRencana } = useRencana();
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -188,8 +190,8 @@ export default function RencanaScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header — Rounded bottom with inline FAB */}
-      <View style={styles.header}>
+      {/* Header — Rounded bottom with inline FAB, dynamic safe area */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 12 }]}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>Daftar Rencana</Text>
@@ -479,8 +481,8 @@ export default function RencanaScreen() {
             />
           </ScrollView>
 
-          {/* CTA fixed di bottom */}
-          <View style={styles.modalFooter}>
+          {/* CTA fixed di bottom, respects bottom safe area */}
+          <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
             <Button
               label="Batal"
               onPress={() => { setModalVisible(false); reset(); }}
@@ -504,9 +506,9 @@ export default function RencanaScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   // ── Header ────────────────────────────────────────────────
+  // NOTE: paddingTop is set dynamically via insets.top in the component
   header: {
     backgroundColor: Colors.primary,
-    paddingTop: 52,
     paddingBottom: 20,
     paddingHorizontal: Spacing.lg,
     ...HeaderStyle,

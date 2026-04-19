@@ -1,5 +1,6 @@
 // ============================================================================
-// Home Screen — Modern compact header + dashboard-style content
+// Home Screen — KPI Dashboard + Activity Feed + Quick Actions
+// Redesign: Rich dashboard inspired by field marketing KPI panels
 // ============================================================================
 
 import { useCallback } from 'react';
@@ -12,24 +13,29 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useRencana } from '@/hooks/useRencana';
+import { useLaporan} from '@/hooks/useLaporan';
 import { Card } from '@/components/ui/Card';
 import { CardSkeleton } from '@/components/ui/Skeleton';
-import { Colors, FontSize, Spacing, Shadows, BorderRadius } from '@/constants/theme';
+import { Colors, FontSize, Spacing, Shadows, BorderRadius, StatusConfig } from '@/constants/theme';
 import { formatRupiah } from '@/lib/formatters';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const { rencanaList, hasRencanaAktif, fetchRencana, loading } = useRencana();
+  const { laporan, fetchLaporan, loading: laporanLoading } = useLaporan();
 
   useFocusEffect(
     useCallback(() => {
       fetchRencana();
+      fetchLaporan();
     }, []),
   );
 
@@ -51,17 +57,36 @@ export default function HomeScreen() {
     year: 'numeric',
   });
 
-  // Calculate total stats
+  // ── KPI Calculations ──────────────────────────────────
   const totalTarget = rencanaAktif.reduce((sum, r) => sum + r.target_nominal, 0);
   const totalCollected = rencanaAktif.reduce((sum, r) => sum + (r.total_collected || 0), 0);
   const overallProgress = totalTarget > 0 ? Math.min(Math.round((totalCollected / totalTarget) * 100), 100) : 0;
+
+  // Laporan bulan ini
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const laporanBulanIni = laporan.filter((l) => {
+    const d = new Date(l.created_at);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  const totalDHtertagih = laporan.reduce((sum, l) => sum + (l.jumlah_tagihan || 0), 0);
+  const totalDHbulanIni = laporanBulanIni.reduce((sum, l) => sum + (l.jumlah_tagihan || 0), 0);
+
+  const eksekusiPct = rencanaList.length > 0
+    ? Math.round((rencanaSelesai.length / rencanaList.length) * 100)
+    : 0;
+
+  // 3 laporan terbaru
+  const recentLaporan = laporan.slice(0, 5);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
-      {/* Compact Header */}
-      <View style={styles.header}>
+      {/* ── Header ── */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 10 }]}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={styles.avatar}>
@@ -86,34 +111,90 @@ export default function HomeScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Quick Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: Colors.infoSoft }]}>
-            <Text style={[styles.statNumber, { color: Colors.accent }]}>
-              {rencanaAktif.length}
-            </Text>
-            <Text style={styles.statLabel}>Aktif</Text>
+
+        {/* ══════════════════════════════════════════════════
+            KPI GLOBAL — Card grid
+            ══════════════════════════════════════════════════ */}
+        <Text style={styles.sectionTitle}>📊  KPI Global</Text>
+        <View style={styles.kpiGrid}>
+          {/* Row 1 */}
+          <View style={styles.kpiRow}>
+            <View style={[styles.kpiCard, { borderLeftColor: Colors.accent }]}>
+              <Text style={styles.kpiIcon}>📋</Text>
+              <Text style={[styles.kpiValue, { color: Colors.accent }]}>
+                {rencanaList.length}
+              </Text>
+              <Text style={styles.kpiLabel}>Total Rencana</Text>
+            </View>
+            <View style={[styles.kpiCard, { borderLeftColor: Colors.success }]}>
+              <Text style={styles.kpiIcon}>✅</Text>
+              <Text style={[styles.kpiValue, { color: Colors.success }]}>
+                {rencanaSelesai.length}
+              </Text>
+              <Text style={styles.kpiLabel}>Rencana Selesai</Text>
+            </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: Colors.successSoft }]}>
-            <Text style={[styles.statNumber, { color: Colors.success }]}>
-              {rencanaSelesai.length}
-            </Text>
-            <Text style={styles.statLabel}>Selesai</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: Colors.warningSoft }]}>
-            <Text style={[styles.statNumber, { color: Colors.warning }]}>
-              {overallProgress}%
-            </Text>
-            <Text style={styles.statLabel}>Progress</Text>
+          {/* Row 2 */}
+          <View style={styles.kpiRow}>
+            <View style={[styles.kpiCard, { borderLeftColor: Colors.warning }]}>
+              <Text style={styles.kpiIcon}>📝</Text>
+              <Text style={[styles.kpiValue, { color: Colors.warning }]}>
+                {laporanBulanIni.length}
+              </Text>
+              <Text style={styles.kpiLabel}>Kunjungan Bulan Ini</Text>
+            </View>
+            <View style={[styles.kpiCard, { borderLeftColor: '#8B5CF6' }]}>
+              <Text style={styles.kpiIcon}>📈</Text>
+              <Text style={[styles.kpiValue, { color: '#8B5CF6' }]}>
+                {eksekusiPct}%
+              </Text>
+              <Text style={styles.kpiLabel}>% Eksekusi</Text>
+            </View>
           </View>
         </View>
 
-        {/* Overall Progress Card */}
+        {/* ══════════════════════════════════════════════════
+            TOTAL TERTAGIH — Big highlight card
+            ══════════════════════════════════════════════════ */}
+        <View style={styles.highlightCard}>
+          <View style={styles.highlightRow}>
+            <View style={styles.highlightLeft}>
+              <Text style={styles.highlightLabel}>Total DH Tertagih</Text>
+              <Text style={styles.highlightValue}>
+                {formatRupiah(totalDHtertagih)}
+              </Text>
+              <Text style={styles.highlightSub}>
+                Bulan ini: {formatRupiah(totalDHbulanIni)}
+              </Text>
+            </View>
+            <View style={styles.highlightCircle}>
+              <Text style={styles.highlightCircleText}>💰</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ══════════════════════════════════════════════════
+            TARGET PROGRESS — Progress bar card
+            ══════════════════════════════════════════════════ */}
         {rencanaAktif.length > 0 && (
           <View style={styles.progressCard}>
             <View style={styles.progressHeader}>
-              <Text style={styles.progressTitle}>Target Aktif</Text>
-              <Text style={styles.progressPct}>{overallProgress}%</Text>
+              <Text style={styles.progressTitle}>🎯 Target Aktif</Text>
+              <View style={[
+                styles.progressBadge,
+                {
+                  backgroundColor: overallProgress >= 80 ? Colors.successSoft : overallProgress >= 50 ? Colors.warningSoft : Colors.infoSoft,
+                },
+              ]}>
+                <Text style={[
+                  styles.progressBadgeText,
+                  {
+                    color: overallProgress >= 80 ? Colors.success : overallProgress >= 50 ? Colors.warning : Colors.accent,
+                  },
+                ]}>
+                  {overallProgress}%
+                </Text>
+              </View>
             </View>
             <View style={styles.progressBarTrack}>
               <View
@@ -121,7 +202,8 @@ export default function HomeScreen() {
                   styles.progressBarFill,
                   {
                     width: `${Math.min(overallProgress, 100)}%`,
-                    backgroundColor: overallProgress >= 100 ? Colors.success : Colors.accent,
+                    backgroundColor: overallProgress >= 100 ? Colors.success : 
+                      overallProgress >= 50 ? Colors.warning : Colors.accent,
                   },
                 ]}
               />
@@ -129,18 +211,30 @@ export default function HomeScreen() {
             <View style={styles.progressAmountsCol}>
               <View style={styles.progressAmountRow}>
                 <Text style={styles.progressLabel}>Terkumpul</Text>
-                <Text style={styles.progressValue}>{formatRupiah(totalCollected)}</Text>
+                <Text style={[styles.progressValue, { color: Colors.success }]}>
+                  {formatRupiah(totalCollected)}
+                </Text>
               </View>
               <View style={styles.progressAmountRow}>
                 <Text style={styles.progressLabel}>Target</Text>
-                <Text style={styles.progressValue}>{formatRupiah(totalTarget)}</Text>
+                <Text style={styles.progressValue}>
+                  {formatRupiah(totalTarget)}
+                </Text>
+              </View>
+              <View style={styles.progressAmountRow}>
+                <Text style={styles.progressLabel}>Sisa</Text>
+                <Text style={[styles.progressValue, { color: Colors.danger }]}>
+                  {formatRupiah(Math.max(totalTarget - totalCollected, 0))}
+                </Text>
               </View>
             </View>
           </View>
         )}
 
-        {/* CTA Buttons */}
-        <Text style={styles.sectionTitle}>Aksi Cepat</Text>
+        {/* ══════════════════════════════════════════════════
+            AKSI CEPAT — Quick action buttons
+            ══════════════════════════════════════════════════ */}
+        <Text style={styles.sectionTitle}>⚡  Aksi Cepat</Text>
         <View style={styles.ctaRow}>
           <TouchableOpacity
             style={styles.ctaCard}
@@ -179,15 +273,17 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Rencana Aktif List */}
+        {/* ══════════════════════════════════════════════════
+            RENCANA AKTIF LIST
+            ══════════════════════════════════════════════════ */}
         {loading ? (
           <>
-            <Text style={styles.sectionTitle}>Rencana Aktif</Text>
+            <Text style={styles.sectionTitle}>🔥  Rencana Aktif</Text>
             <CardSkeleton />
           </>
         ) : rencanaAktif.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>Rencana Aktif</Text>
+            <Text style={styles.sectionTitle}>🔥  Rencana Aktif</Text>
             {rencanaAktif.slice(0, 3).map((r) => {
               const pct = Math.min(r.progress || 0, 100);
               return (
@@ -203,13 +299,33 @@ export default function HomeScreen() {
                           month: 'short',
                         })}
                         {' • '}
-                        {formatRupiah(r.total_collected || 0)}
+                        {formatRupiah(r.total_collected || 0)} / {formatRupiah(r.target_nominal)}
                       </Text>
                     </View>
-                    <Text style={styles.rencanaPct}>{pct}%</Text>
+                    <View style={[
+                      styles.rencanaPctBadge,
+                      {
+                        backgroundColor: pct >= 80 ? Colors.successSoft : pct >= 50 ? Colors.warningSoft : Colors.infoSoft,
+                      },
+                    ]}>
+                      <Text style={[
+                        styles.rencanaPctText,
+                        {
+                          color: pct >= 80 ? Colors.success : pct >= 50 ? Colors.warning : Colors.accent,
+                        },
+                      ]}>
+                        {pct}%
+                      </Text>
+                    </View>
                   </View>
                   <View style={styles.miniProgressTrack}>
-                    <View style={[styles.miniProgressFill, { width: `${pct}%` }]} />
+                    <View style={[
+                      styles.miniProgressFill,
+                      {
+                        width: `${pct}%`,
+                        backgroundColor: pct >= 80 ? Colors.success : pct >= 50 ? Colors.warning : Colors.accent,
+                      },
+                    ]} />
                   </View>
                 </Card>
               );
@@ -231,8 +347,53 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Bottom padding */}
-        <View style={{ height: 90 }} />
+        {/* ══════════════════════════════════════════════════
+            AKTIVITAS TERBARU — Recent laporan
+            ══════════════════════════════════════════════════ */}
+        <Text style={styles.sectionTitle}>🕐  Aktivitas Terbaru</Text>
+        {laporanLoading ? (
+          <CardSkeleton />
+        ) : recentLaporan.length > 0 ? (
+          <View style={styles.activityCard}>
+            {recentLaporan.map((l, idx) => {
+              const cfg = StatusConfig[l.status] || StatusConfig.pending;
+              const createdDate = new Date(l.created_at).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+              return (
+                <View key={l.id}>
+                  <View style={styles.activityItem}>
+                    <View style={[styles.activityDot, { backgroundColor: cfg.color }]} />
+                    <View style={styles.activityContent}>
+                      <View style={styles.activityTopRow}>
+                        <Text style={styles.activityAmount} numberOfLines={1}>
+                          {formatRupiah(l.jumlah_tagihan)}
+                        </Text>
+                        <View style={[styles.activityBadge, { backgroundColor: cfg.softBg }]}>
+                          <Text style={[styles.activityBadgeText, { color: cfg.color }]}>
+                            {cfg.icon} {cfg.label}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.activityDate}>{createdDate}</Text>
+                    </View>
+                  </View>
+                  {idx < recentLaporan.length - 1 && <View style={styles.activityDivider} />}
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.emptySmall}>
+            <Text style={styles.emptySmallText}>Belum ada aktivitas</Text>
+          </View>
+        )}
+
+        {/* Bottom padding for tab bar */}
+        <View style={{ height: 80 + Math.max(insets.bottom, 8) }} />
       </ScrollView>
     </View>
   );
@@ -240,10 +401,10 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+
   // ── Header ─────────────────────────────────────────────
   header: {
     backgroundColor: '#0F172A',
-    paddingTop: 50,
     paddingBottom: 16,
     paddingHorizontal: Spacing.lg,
   },
@@ -272,9 +433,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
   },
-  headerInfo: {
-    flex: 1,
-  },
+  headerInfo: { flex: 1 },
   greetingText: {
     fontSize: FontSize.xs,
     color: 'rgba(255,255,255,0.5)',
@@ -303,43 +462,114 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.3)',
     marginTop: 8,
   },
+
   // ── Content ────────────────────────────────────────────
   content: { flex: 1 },
   contentContainer: {
     padding: Spacing.md,
     paddingTop: Spacing.md,
   },
-  // ── Stats ──────────────────────────────────────────────
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xs,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: FontSize.lg,
-    fontWeight: '800',
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+
+  // ── Section Title ─────────────────────────────────────
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
     color: Colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 2,
+    letterSpacing: 0.8,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
   },
-  // ── Progress card ──────────────────────────────────────
+
+  // ── KPI Grid ──────────────────────────────────────────
+  kpiGrid: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderLeftWidth: 4,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.card,
+  },
+  kpiIcon: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  kpiValue: {
+    fontSize: FontSize.xl,
+    fontWeight: '800',
+  },
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+
+  // ── Highlight card (total tertagih) ───────────────────
+  highlightCard: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginTop: Spacing.sm,
+    ...Shadows.header,
+  },
+  highlightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  highlightLeft: {
+    flex: 1,
+  },
+  highlightLabel: {
+    fontSize: FontSize.xs,
+    color: 'rgba(255,255,255,0.6)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+  },
+  highlightValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 4,
+  },
+  highlightSub: {
+    fontSize: FontSize.xs,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 4,
+  },
+  highlightCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: Spacing.md,
+  },
+  highlightCircleText: {
+    fontSize: 24,
+  },
+
+  // ── Progress card ─────────────────────────────────────
   progressCard: {
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
-    marginBottom: Spacing.md,
+    marginTop: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.borderLight,
     ...Shadows.card,
@@ -348,31 +578,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   progressTitle: {
     fontSize: FontSize.sm,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  progressPct: {
-    fontSize: FontSize.lg,
+  progressBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  progressBadgeText: {
+    fontSize: FontSize.sm,
     fontWeight: '800',
-    color: Colors.accent,
   },
   progressBarTrack: {
-    height: 8,
+    height: 10,
     backgroundColor: Colors.borderLight,
-    borderRadius: 4,
+    borderRadius: 5,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   progressBarFill: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 5,
   },
   progressAmountsCol: {
-    gap: 4,
+    gap: 6,
   },
   progressAmountRow: {
     flexDirection: 'row',
@@ -385,19 +619,11 @@ const styles = StyleSheet.create({
   },
   progressValue: {
     fontSize: FontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.textSecondary,
   },
+
   // ── CTA ────────────────────────────────────────────────
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
   ctaRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -428,7 +654,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textPrimary,
   },
-  // ── Rencana list ───────────────────────────────────────
+
+  // ── Rencana list ──────────────────────────────────────
   rencanaCard: { marginBottom: Spacing.sm },
   rencanaRow: {
     flexDirection: 'row',
@@ -439,7 +666,15 @@ const styles = StyleSheet.create({
   rencanaLeft: { flex: 1, marginRight: Spacing.sm },
   rencanaName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
   rencanaMeta: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  rencanaPct: { fontSize: FontSize.base, fontWeight: '800', color: Colors.accent },
+  rencanaPctBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  rencanaPctText: {
+    fontSize: FontSize.xs,
+    fontWeight: '800',
+  },
   miniProgressTrack: {
     height: 4,
     backgroundColor: Colors.borderLight,
@@ -449,9 +684,65 @@ const styles = StyleSheet.create({
   miniProgressFill: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.accent,
   },
-  // ── Empty ──────────────────────────────────────────────
+
+  // ── Activity Feed ─────────────────────────────────────
+  activityCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.card,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+  },
+  activityDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 5,
+    marginRight: 12,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  activityAmount: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  activityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    marginLeft: 8,
+  },
+  activityBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  activityDate: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  activityDivider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginLeft: 22,
+  },
+
+  // ── Empty states ──────────────────────────────────────
   emptyBox: {
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
@@ -476,4 +767,16 @@ const styles = StyleSheet.create({
     ...Shadows.fab,
   },
   emptyBtnText: { fontSize: FontSize.sm, fontWeight: '600', color: '#FFF' },
+  emptySmall: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  emptySmallText: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+  },
 });
