@@ -1,374 +1,278 @@
-# 🏢 Field Marketing Reporting System
+# Field Marketing System
 
-> **Sistem Pelaporan & Manajemen Tim Marketing Lapangan — Real-Time**
+Sistem manajemen laporan kunjungan untuk tim field marketing. Terdiri dari **Web Dashboard** (Admin/Superadmin) dan **Mobile App** (Field Collector).
 
-Platform monorepo yang menggabungkan **Mobile App** (untuk karyawan lapangan) dan **Web Dashboard** (untuk Admin/Superadmin). Dibangun untuk monitoring kinerja tim secara real-time: laporan kunjungan, rencana penagihan, tracking GPS, dan analitik bisnis.
+## Tech Stack
 
----
-
-## 📋 Daftar Isi
-
-- [Tech Stack](#-tech-stack)
-- [Struktur Folder](#-struktur-folder)
-- [Cara Setup & Menjalankan Project](#-cara-setup--menjalankan-project)
-- [Environment Variables](#-environment-variables)
-- [Setup Database (Supabase)](#-setup-database-supabase)
-- [Deploy Edge Functions](#-deploy-edge-functions)
-- [Alur Kerja Git (Branch Workflow)](#-alur-kerja-git-branch-workflow)
-- [Arsitektur & Konsep Penting](#-arsitektur--konsep-penting)
-- [Catatan Penting untuk Developer](#-catatan-penting-untuk-developer)
-- [Kontak & Kontributor](#-kontak--kontributor)
-
----
-
-## 🛠 Tech Stack
-
-| Layer | Teknologi |
-|---|---|
-| **Monorepo** | npm workspaces |
-| **Web Dashboard** | Next.js 14 (App Router), React 18, Tailwind CSS, shadcn/ui, Recharts, Google Maps |
-| **Mobile App** | Expo SDK 54, React Native 0.81, React 19, Expo Router, Zustand |
-| **Backend / DB** | Supabase (PostgreSQL + Realtime WebSocket + Edge Functions) |
-| **Shared Package** | TypeScript types, Zod validations, constants |
-| **Auth** | Custom JWT via Supabase Edge Function (login pakai Nomor Induk) |
-| **Export** | ExcelJS (xlsx), jsPDF (pdf) |
+| Layer | Teknologi | Versi |
+|-------|-----------|-------|
+| **Monorepo** | npm workspaces | - |
+| **Mobile** | Expo (Expo Router) | SDK 54 |
+| **Mobile UI** | React Native | 0.81.5 |
+| **Mobile State** | Zustand | latest |
+| **Web** | Next.js (App Router) | 14.2 |
+| **Web Styling** | TailwindCSS | 3.4 |
+| **Backend** | Supabase (PostgreSQL + Edge Functions) | - |
+| **Auth** | Custom JWT via Supabase | - |
+| **Storage** | Supabase Storage | - |
+| **Form** | React Hook Form + Zod | - |
+| **Shared** | `@field-marketing/shared` (validasi + tipe) | - |
 
 ---
 
-## 📂 Struktur Folder
+## Prasyarat
 
-```
-Workspace_b/
-├── package.json                  # Root monorepo (npm workspaces config)
-├── tsconfig.base.json            # TypeScript config induk
-├── .prettierrc                   # Config Prettier (formatter)
-├── .gitignore                    # File yang diabaikan git
-│
-├── apps/
-│   ├── web/                      # 🌐 WEB DASHBOARD (Next.js 14)
-│   │   ├── src/
-│   │   │   ├── app/
-│   │   │   │   ├── (auth)/login/ # Halaman login web
-│   │   │   │   ├── dashboard/    # Halaman dashboard + Server Actions
-│   │   │   │   │   ├── admin/    # Dashboard Admin
-│   │   │   │   │   └── super/    # Dashboard Superadmin (manajemen user)
-│   │   │   │   └── api/          # API route handlers
-│   │   │   ├── components/
-│   │   │   │   ├── features/     # Komponen fitur (dashboard, maps, reports, users)
-│   │   │   │   ├── layout/       # Layout (Sidebar, Header, DashboardLayout)
-│   │   │   │   ├── providers/    # ThemeProvider
-│   │   │   │   └── ui/           # Komponen UI dasar (Toaster, dll)
-│   │   │   ├── hooks/            # Custom hooks (useDashboardData)
-│   │   │   ├── lib/              # Utilities (supabase client/server, formatters)
-│   │   │   └── middleware.ts     # 🔒 Auth guard & role-based access control
-│   │   ├── .env.local            # ⚠️ ENV web (JANGAN COMMIT — lihat template di bawah)
-│   │   ├── next.config.js        # Next.js config
-│   │   ├── tailwind.config.ts    # Tailwind config
-│   │   └── package.json          # Dependencies web
-│   │
-│   └── mobile/                   # 📱 MOBILE APP (Expo + React Native)
-│       ├── app/
-│       │   ├── (auth)/           # Halaman auth (login screen)
-│       │   ├── (main)/           # Halaman utama setelah login
-│       │   │   ├── index.tsx     # Home screen (ringkasan & KPI)
-│       │   │   ├── rencana.tsx   # Manajemen rencana penagihan
-│       │   │   ├── history.tsx   # Riwayat laporan
-│       │   │   └── laporan/
-│       │   │       └── buat.tsx  # Form buat laporan kunjungan
-│       │   └── _layout.tsx       # Root layout
-│       ├── components/ui/        # Komponen UI reusable (Button, Card, Input, dll)
-│       ├── hooks/                # Custom hooks (useAuth, useLaporan, useRencana, useLocation)
-│       ├── store/                # Zustand stores (authStore, locationStore)
-│       ├── lib/                  # Supabase client, formatters, image compress
-│       ├── constants/            # Theme & design tokens
-│       ├── assets/               # Ikon & splash screen
-│       ├── .env.local            # ⚠️ ENV mobile (JANGAN COMMIT — lihat template di bawah)
-│       ├── metro.config.js       # Metro bundler config (isolasi React version)
-│       └── package.json          # Dependencies mobile
-│
-├── packages/
-│   └── shared/                   # 📦 SHARED PACKAGE (@field-marketing/shared)
-│       ├── types/                # TypeScript types (user, laporan, rencana, dashboard)
-│       ├── validations/          # Zod schemas (user, rencana)
-│       ├── constants/            # Shared constants
-│       └── index.ts              # Entry point
-│
-└── supabase/
-    ├── migrations/               # 🗄️ SQL migration files (di-run manual di SQL Editor)
-    │   ├── 001_create_tables.sql
-    │   ├── 002_rls_policies.sql
-    │   ├── 003_rpc_functions.sql
-    │   ├── 003_rencana_delete_workflow.sql
-    │   └── 004_seed_superadmin.sql
-    └── functions/                # ⚡ Supabase Edge Functions (Deno)
-        ├── validate-nomor-induk/ # Auth: login via nomor induk → custom JWT
-        ├── process-laporan-submit/ # Proses submit laporan
-        └── bulk-import-users/    # Import user dari Excel
-```
+Pastikan sudah terinstall di komputer kamu:
+
+- **Node.js** ≥ 20.0.0 ([download](https://nodejs.org/))
+- **npm** ≥ 10 (bawaan Node.js)
+- **Git** ([download](https://git-scm.com/))
+- **Expo Go** app di HP (Android/iOS) — untuk testing mobile
+- **ngrok** (opsional, untuk tunnel jika LAN tidak bekerja) — [download](https://ngrok.com/download)
 
 ---
 
-## 🚀 Cara Setup & Menjalankan Project
+## Setup Project
 
-### Prasyarat
-
-- **Node.js** v20 atau lebih baru
-- **npm** (sudah include di Node.js)
-- **Expo Go** app di HP (untuk test mobile) ATAU Android emulator
-- Akses ke project **Supabase** (minta ke project owner)
-
-### Langkah 1 — Clone Repository
+### 1. Clone Repository
 
 ```bash
 git clone https://github.com/Torrayz/Workspace_b.git
 cd Workspace_b
 ```
 
-### Langkah 2 — Checkout ke Branch develop
+### 2. Install Dependencies
 
 ```bash
-# JANGAN langsung kerja di branch main!
-git checkout develop
-# Buat branch fitur kamu dari develop
-git checkout -b feature/nama-fitur
+npm install
 ```
 
-### Langkah 3 — Install Dependencies
+> ⚠️ Jangan gunakan `pnpm` atau `yarn`. Project ini menggunakan **npm workspaces** karena kompatibilitas dengan Metro Bundler (Expo/React Native).
 
-```bash
-# Dari root folder — install semua (web + mobile + shared)
-npm install --legacy-peer-deps
+### 3. Setup Environment Variables
+
+#### Mobile (`apps/mobile/.env.local`)
+
+Buat file `apps/mobile/.env.local`:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+EXPO_PUBLIC_APP_URL=http://localhost:8081
 ```
 
-> ⚠️ **Wajib pakai `--legacy-peer-deps`** karena ada dual React version (React 18 di web, React 19 di mobile).
+#### Web (`apps/web/.env.local`)
 
-### Langkah 4 — Setup Environment Variables
+Buat file `apps/web/.env.local`:
 
-Buat file `.env.local` di masing-masing app. **Lihat bagian [Environment Variables](#-environment-variables) di bawah untuk template.**
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+```
 
-### Langkah 5 — Jalankan Project
+> 🔑 Dapatkan keys dari [Supabase Dashboard](https://supabase.com/dashboard) → Settings → API
 
-**Web Dashboard:**
+---
+
+## Menjalankan Project
+
+### Web Dashboard (Admin/Superadmin)
+
 ```bash
 npm run dev:web
-# Buka http://localhost:3000
 ```
 
-**Mobile App (Expo):**
-```bash
-npm run dev:mobile
-# Scan QR code dari Expo Go di HP, ATAU tekan 'a' untuk Android emulator
-```
+Buka `http://localhost:3000` di browser.
 
----
+### Mobile App (Field Collector)
 
-## 🔐 Environment Variables
-
-> ⚠️ File `.env.local` **TIDAK boleh di-commit ke git!** Minta value-nya ke project owner.
-
-### `apps/web/.env.local`
-
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL="https://xxxxx.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOi..."
-SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOi..."
-
-# JWT (harus sama dengan yang di-set di Supabase Edge Function)
-JWT_SECRET="string_rahasia_anda"
-
-# Google Maps
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="AIzaSy..."
-```
-
-### `apps/mobile/.env.local`
-
-```env
-# Supabase
-EXPO_PUBLIC_SUPABASE_URL="https://xxxxx.supabase.co"
-EXPO_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOi..."
-
-# Google Maps (untuk fitur lokasi)
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY="AIzaSy..."
-```
-
-### Di mana mendapat value-nya?
-| Variable | Sumber |
-|---|---|
-| `SUPABASE_URL` & `ANON_KEY` | Supabase Dashboard → Settings → API |
-| `SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API (jangan share ke client!) |
-| `JWT_SECRET` | Supabase Dashboard → Settings → API → JWT Secret |
-| `GOOGLE_MAPS_API_KEY` | Google Cloud Console → APIs → Maps JavaScript API |
-
----
-
-## 🗄 Setup Database (Supabase)
-
-Jika kamu setup project dari nol atau perlu reset database:
-
-1. Buka **Supabase Dashboard** → **SQL Editor**
-2. Jalankan migration files **SECARA BERURUTAN**:
-
-```
-supabase/migrations/001_create_tables.sql       → Buat semua tabel
-supabase/migrations/002_rls_policies.sql         → Row Level Security policies
-supabase/migrations/003_rpc_functions.sql        → Functions & stored procedures
-supabase/migrations/003_rencana_delete_workflow.sql → Workflow hapus rencana
-supabase/migrations/004_seed_superadmin.sql      → Akun superadmin default
-```
-
-> ⚠️ **Urutan PENTING!** Jangan loncat — tiap file bergantung pada file sebelumnya.
-
----
-
-## ⚡ Deploy Edge Functions
-
-Edge Functions wajib di-deploy agar fitur login & submit laporan berfungsi:
+**Cara 1: Mode LAN** (jika HP & laptop di WiFi yang sama)
 
 ```bash
-# 1. Install Supabase CLI (jika belum)
-npm install -g supabase
-
-# 2. Login ke Supabase
-supabase login
-
-# 3. Link ke project
-supabase link --project-ref <PROJECT_ID>
-
-# 4. Deploy semua function
-supabase functions deploy validate-nomor-induk
-supabase functions deploy process-laporan-submit
-supabase functions deploy bulk-import-users
-
-# 5. Set secret (JWT_SECRET harus sama dengan di .env.local web)
-supabase secrets set JWT_SECRET="string_rahasia_anda"
+cd apps/mobile
+npx expo start -c
 ```
 
----
+Scan QR code yang muncul di terminal menggunakan Expo Go.
 
-## 🌳 Alur Kerja Git (Branch Workflow)
+**Cara 2: Mode Tunnel** (jika LAN tidak bekerja / beda jaringan)
 
-```
-main          ← Branch production, hanya via Pull Request (PR)
-└── develop   ← Branch development utama, merge fitur ke sini
-    ├── feature/nama-fitur-1
-    ├── feature/nama-fitur-2
-    └── fix/nama-bugfix
-```
-
-### Aturan:
-1. **JANGAN push langsung ke `main`** — harus lewat Pull Request dari `develop`
-2. **JANGAN push langsung ke `develop`** — buat branch fitur dulu
-3. **Naming convention branch:**
-   - `feature/deskripsi-singkat` — untuk fitur baru
-   - `fix/deskripsi-singkat` — untuk bugfix
-   - `hotfix/deskripsi-singkat` — untuk fix urgent di production
-4. **Sebelum buat PR, pastikan:**
-   - Code sudah di-test secara lokal
-   - Tidak ada error TypeScript (`npm run build:web`)
-   - Commit message jelas dan deskriptif
-
-### Contoh alur kerja:
 ```bash
-# 1. Pastikan develop up to date
-git checkout develop
-git pull origin develop
+cd apps/mobile
+npx expo start --tunnel -c
+```
 
-# 2. Buat branch fitur
-git checkout -b feature/tambah-filter-laporan
+Scan QR code yang muncul di terminal menggunakan Expo Go.
 
-# 3. Kerjakan fiturnya, lalu commit
-git add .
-git commit -m "feat: tambah filter tanggal di halaman laporan"
+> **⚠️ Troubleshooting Tunnel:**
+>
+> Jika muncul error `CommandError: failed to start tunnel` atau `session closed`:
+>
+> 1. Buat akun gratis di [ngrok.com](https://dashboard.ngrok.com/signup)
+> 2. Copy authtoken dari dashboard ngrok
+> 3. Jalankan: `ngrok config add-authtoken <TOKEN_ANDA>`
+> 4. Expo menggunakan ngrok v2 bawaan (`@expo/ngrok-bin`) yang mungkin sudah usang.
+>    Jika masih error, ganti binary ngrok bawaan Expo dengan ngrok system:
+>    ```bash
+>    # Backup binary lama
+>    NGROK_BIN=$(find ~/.npm-global -path "*/@expo/ngrok-bin-linux-x64/ngrok" 2>/dev/null)
+>    cp "$NGROK_BIN" "${NGROK_BIN}.backup"
+>    # Symlink ke system ngrok
+>    ln -sf $(which ngrok) "$NGROK_BIN"
+>    ```
+> 5. Patch file `~/.npm-global/lib/node_modules/@expo/ngrok/index.js` untuk strip internal fields yang tidak dikenal ngrok v3 (lihat commit history untuk detail patch).
 
-# 4. Push branch
-git push origin feature/tambah-filter-laporan
+---
 
-# 5. Buat Pull Request di GitHub: feature/tambah-filter-laporan → develop
+## Struktur Project
+
+```
+Workspace_b/
+├── apps/
+│   ├── mobile/                   # Expo React Native app
+│   │   ├── app/
+│   │   │   ├── (auth)/           # Login screen
+│   │   │   ├── (main)/           # Tab navigator
+│   │   │   │   ├── index.tsx     # Home — KPI Dashboard
+│   │   │   │   ├── rencana.tsx   # Daftar & buat rencana
+│   │   │   │   ├── history.tsx   # History laporan
+│   │   │   │   ├── laporan/
+│   │   │   │   │   └── buat.tsx  # Form kunjungan (submit laporan)
+│   │   │   │   └── _layout.tsx   # Bottom tab navigator
+│   │   │   └── _layout.tsx       # Root layout (auth guard)
+│   │   ├── components/ui/        # Reusable UI components
+│   │   ├── constants/theme.ts    # Design tokens (colors, spacing, etc.)
+│   │   ├── hooks/                # Custom hooks (useRencana, useLaporan, etc.)
+│   │   ├── lib/                  # Utilities (supabase client, formatters)
+│   │   ├── store/                # Zustand stores (auth, location)
+│   │   └── app.json              # Expo configuration
+│   │
+│   └── web/                      # Next.js web dashboard
+│       └── src/app/
+│           ├── (auth)/           # Login pages
+│           └── dashboard/
+│               ├── admin/        # Admin dashboard (approve reports, manage users)
+│               └── super/        # Superadmin dashboard (full access)
+│
+├── packages/
+│   └── shared/                   # Shared types, validations, constants
+│       ├── types/
+│       ├── validations/
+│       └── constants/
+│
+├── supabase/
+│   ├── functions/                # Supabase Edge Functions
+│   └── migrations/               # Database migration SQL files
+│
+├── package.json                  # Root workspace config
+├── tsconfig.base.json            # Shared TypeScript config
+└── .gitignore
 ```
 
 ---
 
-## 🧠 Arsitektur & Konsep Penting
+## Fitur Utama
 
-### 1. Autentikasi (Custom JWT)
-- Sistem ini **TIDAK pakai email/password**. User login pakai **Nomor Induk** saja.
-- Alur: Mobile mengirim Nomor Induk → Edge Function `validate-nomor-induk` → cek DB → return JWT token.
-- Web dashboard membaca session dari cookie `auth_user` (httpOnly).
+### Mobile App (Field Collector)
 
-### 2. Role-Based Access Control (RBAC)
+| Fitur | Deskripsi |
+|-------|-----------|
+| **KPI Dashboard** | Ringkasan metrik: total rencana, kunjungan bulan ini, DH tertagih, % eksekusi |
+| **Rencana** | Buat & kelola rencana penagihan dengan target nominal dan tanggal |
+| **Form Kunjungan** | Submit laporan dengan foto, GPS, status (lunas/pending/gagal/sebagian) |
+| **History** | Lihat riwayat semua laporan yang sudah dikirim |
+| **Safe Area** | UI responsif — otomatis menyesuaikan notch, status bar, dan navigasi 3 tombol Android |
+
+### Web Dashboard (Admin/Superadmin)
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| **Overview** | Statistik global: total user, laporan, rekap per bulan |
+| **Laporan** | Review & approve/reject laporan dari field collector |
+| **User Management** | Tambah/hapus user (superadmin only) |
+| **Persetujuan Hapus** | Approve/reject request hapus rencana dari mobile |
+| **RBAC** | Role-based access: admin vs superadmin vs field collector |
+
+---
+
+## Role & Access Control
+
 | Role | Akses |
-|---|---|
-| `user` | **Hanya mobile app** — tidak bisa akses web dashboard |
-| `admin` | Web dashboard admin (`/dashboard/admin`) |
-| `superadmin` | Web dashboard superadmin (`/dashboard/super`) + semua akses admin |
+|------|-------|
+| `superadmin` | Web dashboard — full access (semua fitur admin + user management) |
+| `admin` | Web dashboard — review laporan, approve delete requests |
+| `user` | Mobile app only — buat rencana, submit laporan, lihat history |
 
-Middleware di `apps/web/src/middleware.ts` mengontrol ini secara ketat.
-
-### 3. Dual React Version
-- `apps/web` → **React 18** (kebutuhan Next.js 14)
-- `apps/mobile` → **React 19** (kebutuhan Expo SDK 54)
-- Ini **sudah dikonfigurasi** — jangan ubah versi React di salah satu app tanpa paham implikasinya.
-- `metro.config.js` di mobile sudah mengisolasi agar tidak bentrok.
-
-### 4. Server Actions (Web)
-- File `apps/web/src/app/dashboard/actions.ts` berisi semua logika interaksi database.
-- Komponen client **tidak langsung query Supabase** — selalu lewat Server Actions.
-- Ini untuk keamanan (menyembunyikan DB logic dari browser).
-
-### 5. Realtime GPS Tracking
-- Mobile app mengirim lokasi GPS ke tabel `user_locations` via Supabase Realtime.
-- Web dashboard subscribe ke perubahan → marker di Google Maps bergerak live.
+> ⚠️ User dengan role `user` yang mencoba akses web dashboard akan di-redirect ke halaman peringatan. Admin/superadmin tidak bisa akses mobile app.
 
 ---
 
-## ⚠️ Catatan Penting untuk Developer
+## Database (Supabase)
 
-### Hal yang HARUS diperhatikan:
+### Tabel Utama
 
-1. **Jangan commit file `.env.local`** — sudah di-`.gitignore`, tapi tetap hati-hati.
+| Tabel | Deskripsi |
+|-------|-----------|
+| `users` | Data user (nama, email, role, wilayah) |
+| `rencana` | Rencana penagihan (target, tanggal, status, delete request) |
+| `laporan` | Laporan kunjungan (foto, GPS, nominal, status) |
 
-2. **Error TypeScript merah di IDE (squiggly lines)** — ini NORMAL di monorepo dengan dual React version. Selama `npm run build:web` atau `npx tsc` berhasil (exit code 0), abaikan error IDE.
+### Edge Functions
 
-3. **Install dependency baru** — jalankan dari root dan tentukan workspace:
-   ```bash
-   # Untuk web
-   npm install nama-package --workspace=apps/web --legacy-peer-deps
-   
-   # Untuk mobile
-   npm install nama-package --workspace=apps/mobile --legacy-peer-deps
-   ```
+| Function | Deskripsi |
+|----------|-----------|
+| `process-laporan-submit` | Validasi server-side (GPS bounds, ownership) + insert laporan |
 
-4. **Menambah role baru:**
-   - Edit enum `user_role` di `supabase/migrations/001_create_tables.sql`
-   - Update middleware di `apps/web/src/middleware.ts`
-   - Update Sidebar di `apps/web/src/components/layout/Sidebar.tsx`
+---
 
-5. **Edge Function gagal (Missing authorization header):**
-   - Pastikan request mengirim header `Authorization: Bearer <SUPABASE_ANON_KEY>`
-   - Apikey saja tidak cukup untuk Edge Functions.
+## Troubleshooting
 
-6. **Jangan hapus `metro.config.js`** di folder mobile — file ini kritis untuk mengisolasi React Native dari React Next.js.
+### "Metro waiting on exp://..." tapi tidak bisa connect dari HP
 
-### Scripts yang tersedia:
+1. Pastikan HP dan laptop di WiFi yang **sama**
+2. Matikan mobile data di HP sementara
+3. Jika tetap gagal, gunakan mode `--tunnel`
+
+### Warning "@types/react version mismatch"
+
+Project ini menggunakan React 18 di web dan React 19 di mobile. Jika muncul warning:
 
 ```bash
-npm run dev:web          # Jalankan web dashboard (localhost:3000)
-npm run dev:mobile       # Jalankan mobile app (Expo)
-npm run build:web        # Build production web
-npm run lint             # Lint semua workspace
-npm run format           # Format semua file dengan Prettier
-npm run format:check     # Cek format tanpa mengubah file
+# Hapus node_modules dan install ulang
+rm -rf node_modules apps/mobile/node_modules apps/web/node_modules
+npm install
+```
+
+### "Invalid hook call" error di mobile
+
+Metro bundler mungkin me-resolve React dari root (v18) bukan dari mobile (v19). File `metro.config.js` sudah dikonfigurasi untuk menangani ini. Jika masih error:
+
+```bash
+cd apps/mobile
+npx expo start -c   # -c flag membersihkan cache Metro
+```
+
+### Build production mobile
+
+```bash
+cd apps/mobile
+npx eas build --platform android --profile preview
 ```
 
 ---
 
-## 👥 Kontak & Kontributor
+## Development Notes
 
-| Nama | Role | GitHub |
-|---|---|---|
-| Torray | Project Owner | [@Torrayz](https://github.com/Torrayz) |
+- **Jangan gunakan pnpm/yarn** — Metro Bundler tidak kompatibel dengan symlink pnpm
+- **Metro config kustom** — `apps/mobile/metro.config.js` memaksa React resolve ke versi mobile (v19)
+- **Design tokens** — Semua warna, spacing, dan radius ada di `apps/mobile/constants/theme.ts`
+- **Formatting** — Jalankan `npm run format` sebelum commit
+- **TypeScript** — Cek error: `cd apps/mobile && npx tsc --noEmit`
 
 ---
 
-> 📅 Terakhir diperbarui: April 2026
+## License
+
+Private project — not for public distribution.

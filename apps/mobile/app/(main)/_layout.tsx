@@ -7,6 +7,7 @@
 import { Tabs, router } from 'expo-router';
 import { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
 import { Colors, Shadows } from '@/constants/theme';
 
@@ -43,6 +44,11 @@ const tabStyles = StyleSheet.create({
 
 export default function MainLayout() {
   const { isLoggedIn, isInitialized } = useAuth();
+  const insets = useSafeAreaInsets();
+
+  // Ensure tab bar height adapts to device bottom safe area (3-button nav, gesture bar, etc.)
+  const tabBarBottomPadding = Math.max(insets.bottom, 8);
+  const tabBarHeight = 60 + tabBarBottomPadding;
 
   // Guard: kalau tidak ada session, kembali ke auth
   useEffect(() => {
@@ -64,9 +70,9 @@ export default function MainLayout() {
           borderTopWidth: 0,
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          paddingBottom: 10,
+          paddingBottom: tabBarBottomPadding,
           paddingTop: 10,
-          height: 70,
+          height: tabBarHeight,
           position: 'absolute',
           left: 0,
           right: 0,
@@ -106,6 +112,7 @@ export default function MainLayout() {
         name="laporan/buat"
         options={{
           href: null, // Hides from tab bar
+          tabBarStyle: { display: 'none' }, // Hide tab bar entirely on form screen
         }}
       />
     </Tabs>
