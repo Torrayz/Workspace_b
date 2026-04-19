@@ -103,15 +103,14 @@ coverage/
 .nyc_output/
 
 # ================================================================
-# Lock files (opsional — uncomment jika ingin ignore)
-# Catatan: package-lock.json sebaiknya di-commit agar semua
-# tim pakai versi dependency yang SAMA. Jangan uncomment ini
-# kecuali ada alasan kuat.
+# Lock files
+# Catatan: package-lock.json HARUS di-commit agar semua
+# developer pakai versi dependency yang SAMA.
 # ================================================================
 # package-lock.json
 
 # ================================================================
-# File catatan internal / dev notes (tidak perlu di repo)
+# Internal dev notes (tidak perlu di repo)
 # ================================================================
 notes.md
 COMPLETION_REPORT.md
@@ -120,3 +119,4 @@ MIGRATIONS_VERIFICATION.md
 MOBILE_ADMIN_INTEGRATION_GUIDE.md
 SUPABASE_DEPLOYMENT.md
 CHANGELOG.md
+CONTRIBUTING.md
