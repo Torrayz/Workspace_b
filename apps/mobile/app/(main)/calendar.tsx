@@ -1,5 +1,6 @@
 // ============================================================================
 // Calendar Screen — Kalender visual rencana & laporan
+// Custom-built calendar (zero external dependencies)
 // Menampilkan tanggal target rencana dan tanggal kunjungan laporan
 // ============================================================================
 
@@ -14,37 +15,51 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useRencana, type Rencana } from '@/hooks/useRencana';
 import { useLaporan, type Laporan } from '@/hooks/useLaporan';
 import { Card } from '@/components/ui/Card';
-import { StatusBadge } from '@/components/ui/Badge';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { Colors, FontSize, Spacing, Shadows, BorderRadius, StatusConfig } from '@/constants/theme';
 import { formatRupiah } from '@/lib/formatters';
 
-// ── Indonesian locale for calendar ──
-LocaleConfig.locales['id'] = {
-  monthNames: [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-  ],
-  monthNamesShort: [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
-  ],
-  dayNames: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
-  dayNamesShort: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
-  today: 'Hari Ini',
-};
-LocaleConfig.defaultLocale = 'id';
+// ── Indonesian month/day names ──
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+const DAY_HEADERS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 type ViewMode = 'rencana' | 'laporan';
+
+// ── Helper: get days in a month grid ──
+function getCalendarGrid(year: number, month: number) {
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const grid: (number | null)[] = [];
+
+  // Leading empty cells
+  for (let i = 0; i < firstDay; i++) grid.push(null);
+  // Actual days
+  for (let d = 1; d <= daysInMonth; d++) grid.push(d);
+  // Trailing empty cells to fill last row
+  while (grid.length % 7 !== 0) grid.push(null);
+
+  return grid;
+}
+
+// ── Helper: format date key (YYYY-MM-DD) ──
+function toDateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const { rencanaList, fetchRencana, loading: rencanaLoading } = useRencana();
   const { laporan, fetchLaporan, loading: laporanLoading } = useLaporan();
+
+  const today = new Date();
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [viewMode, setViewMode] = useState<ViewMode>('rencana');
 
@@ -56,72 +71,73 @@ export default function CalendarScreen() {
   );
 
   const loading = rencanaLoading || laporanLoading;
+  const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+  const grid = getCalendarGrid(currentYear, currentMonth);
 
-  // ── Build marked dates ──
-  const markedDates = useMemo(() => {
-    const marks: Record<string, any> = {};
+  // ── Navigate months ──
+  const goPrev = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((y) => y - 1);
+    } else {
+      setCurrentMonth((m) => m - 1);
+    }
+    setSelectedDate('');
+  };
+
+  const goNext = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((y) => y + 1);
+    } else {
+      setCurrentMonth((m) => m + 1);
+    }
+    setSelectedDate('');
+  };
+
+  const goToday = () => {
+    setCurrentYear(today.getFullYear());
+    setCurrentMonth(today.getMonth());
+    setSelectedDate('');
+  };
+
+  // ── Build dot markers map ──
+  const dotMarkers = useMemo(() => {
+    const marks: Record<string, { color: string }[]> = {};
 
     if (viewMode === 'rencana') {
-      // Mark rencana target dates
       for (const r of rencanaList) {
-        const dateKey = r.tanggal_target.split('T')[0];
+        const dateKey = r.tanggal_target?.split('T')[0];
         if (!dateKey) continue;
-
-        const statusColor =
+        const color =
           r.status === 'aktif' ? Colors.accent :
           r.status === 'selesai' ? Colors.success :
           Colors.danger;
-
-        if (!marks[dateKey]) {
-          marks[dateKey] = { dots: [], marked: true };
-        }
-        marks[dateKey].dots.push({ key: r.id, color: statusColor });
+        if (!marks[dateKey]) marks[dateKey] = [];
+        marks[dateKey].push({ color });
       }
     } else {
-      // Mark laporan dates
       for (const l of laporan) {
-        const dateKey = l.tanggal_penagihan.split('T')[0];
+        const dateKey = l.tanggal_penagihan?.split('T')[0];
         if (!dateKey) continue;
-
         const cfg = StatusConfig[l.status] || StatusConfig.pending;
-
-        if (!marks[dateKey]) {
-          marks[dateKey] = { dots: [], marked: true };
-        }
-        marks[dateKey].dots.push({ key: l.id, color: cfg.color });
+        if (!marks[dateKey]) marks[dateKey] = [];
+        marks[dateKey].push({ color: cfg.color });
       }
     }
-
-    // Highlight selected date
-    if (selectedDate) {
-      marks[selectedDate] = {
-        ...(marks[selectedDate] || {}),
-        selected: true,
-        selectedColor: Colors.accent,
-      };
-    }
-
     return marks;
-  }, [rencanaList, laporan, selectedDate, viewMode]);
+  }, [rencanaList, laporan, viewMode]);
 
   // ── Items for selected date ──
   const selectedItems = useMemo(() => {
     if (!selectedDate) return { rencana: [] as Rencana[], laporan: [] as Laporan[] };
-
-    const rencanaForDate = rencanaList.filter(
-      (r) => r.tanggal_target.split('T')[0] === selectedDate,
-    );
-    const laporanForDate = laporan.filter(
-      (l) => l.tanggal_penagihan.split('T')[0] === selectedDate,
-    );
-
-    return { rencana: rencanaForDate, laporan: laporanForDate };
+    return {
+      rencana: rencanaList.filter((r) => r.tanggal_target?.split('T')[0] === selectedDate),
+      laporan: laporan.filter((l) => l.tanggal_penagihan?.split('T')[0] === selectedDate),
+    };
   }, [selectedDate, rencanaList, laporan]);
 
   const hasItemsForDate = selectedItems.rencana.length > 0 || selectedItems.laporan.length > 0;
-
-  // Today string
-  const today = new Date().toISOString().split('T')[0];
 
   return (
     <View style={styles.container}>
@@ -162,36 +178,83 @@ export default function CalendarScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Calendar Component ── */}
+        {/* ── Custom Calendar ── */}
         <View style={styles.calendarCard}>
-          <Calendar
-            current={today}
-            onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
-            markingType="multi-dot"
-            markedDates={markedDates}
-            enableSwipeMonths={true}
-            theme={{
-              backgroundColor: Colors.surface,
-              calendarBackground: Colors.surface,
-              textSectionTitleColor: Colors.textMuted,
-              selectedDayBackgroundColor: Colors.accent,
-              selectedDayTextColor: '#FFF',
-              todayTextColor: Colors.accent,
-              todayBackgroundColor: Colors.infoSoft,
-              dayTextColor: Colors.textPrimary,
-              textDisabledColor: Colors.borderLight,
-              dotColor: Colors.accent,
-              selectedDotColor: '#FFF',
-              arrowColor: Colors.accent,
-              monthTextColor: Colors.textPrimary,
-              textDayFontWeight: '500',
-              textMonthFontWeight: '700',
-              textDayHeaderFontWeight: '600',
-              textDayFontSize: 14,
-              textMonthFontSize: 16,
-              textDayHeaderFontSize: 12,
-            }}
-          />
+          {/* Month navigation */}
+          <View style={styles.monthNav}>
+            <TouchableOpacity onPress={goPrev} style={styles.navBtn} activeOpacity={0.6}>
+              <Text style={styles.navBtnText}>‹</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={goToday} activeOpacity={0.7}>
+              <Text style={styles.monthTitle}>
+                {MONTH_NAMES[currentMonth]} {currentYear}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={goNext} style={styles.navBtn} activeOpacity={0.6}>
+              <Text style={styles.navBtnText}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Day headers */}
+          <View style={styles.dayHeaderRow}>
+            {DAY_HEADERS.map((d) => (
+              <View key={d} style={styles.dayHeaderCell}>
+                <Text style={styles.dayHeaderText}>{d}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Day grid */}
+          <View style={styles.dayGrid}>
+            {grid.map((day, idx) => {
+              if (day === null) {
+                return <View key={`empty-${idx}`} style={styles.dayCell} />;
+              }
+
+              const dateKey = toDateKey(currentYear, currentMonth, day);
+              const isToday = dateKey === todayKey;
+              const isSelected = dateKey === selectedDate;
+              const dots = dotMarkers[dateKey] || [];
+
+              return (
+                <TouchableOpacity
+                  key={dateKey}
+                  style={styles.dayCell}
+                  onPress={() => setSelectedDate(dateKey)}
+                  activeOpacity={0.6}
+                >
+                  <View
+                    style={[
+                      styles.dayCircle,
+                      isToday && styles.dayCircleToday,
+                      isSelected && styles.dayCircleSelected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText,
+                        isToday && styles.dayTextToday,
+                        isSelected && styles.dayTextSelected,
+                      ]}
+                    >
+                      {day}
+                    </Text>
+                  </View>
+                  {/* Dot indicators */}
+                  {dots.length > 0 && (
+                    <View style={styles.dotRow}>
+                      {dots.slice(0, 3).map((dot, i) => (
+                        <View
+                          key={i}
+                          style={[styles.dot, { backgroundColor: dot.color }]}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* ── Legend ── */}
@@ -254,7 +317,6 @@ export default function CalendarScreen() {
               </View>
             ) : (
               <>
-                {/* Rencana items for this date */}
                 {selectedItems.rencana.length > 0 && (
                   <>
                     <Text style={styles.subSectionTitle}>📋 Rencana ({selectedItems.rencana.length})</Text>
@@ -291,7 +353,6 @@ export default function CalendarScreen() {
                   </>
                 )}
 
-                {/* Laporan items for this date */}
                 {selectedItems.laporan.length > 0 && (
                   <>
                     <Text style={styles.subSectionTitle}>📝 Laporan ({selectedItems.laporan.length})</Text>
@@ -330,7 +391,6 @@ export default function CalendarScreen() {
           </View>
         )}
 
-        {/* Bottom padding for tab bar */}
         <View style={{ height: 80 + Math.max(insets.bottom, 8) }} />
       </ScrollView>
     </View>
@@ -359,9 +419,7 @@ const styles = StyleSheet.create({
 
   // ── Content ──
   content: { flex: 1 },
-  contentContainer: {
-    padding: Spacing.md,
-  },
+  contentContainer: { padding: Spacing.md },
 
   // ── Toggle ──
   toggleRow: {
@@ -387,18 +445,118 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textSecondary,
   },
-  toggleTextActive: {
-    color: '#FFF',
-  },
+  toggleTextActive: { color: '#FFF' },
 
-  // ── Calendar ──
+  // ── Calendar Card ──
   calendarCard: {
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.borderLight,
+    overflow: 'hidden',
     ...Shadows.card,
+  },
+
+  // Month nav
+  monthNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+  },
+  navBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBtnText: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: Colors.accent,
+    marginTop: -2,
+  },
+  monthTitle: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+
+  // Day headers
+  dayHeaderRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 4,
+    marginBottom: 4,
+  },
+  dayHeaderCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  dayHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+  },
+
+  // Day grid
+  dayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 4,
+    paddingBottom: 8,
+  },
+  dayCell: {
+    width: '14.285%', // 100% / 7
+    alignItems: 'center',
+    paddingVertical: 4,
+    minHeight: 46,
+  },
+  dayCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCircleToday: {
+    backgroundColor: Colors.infoSoft,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+  },
+  dayCircleSelected: {
+    backgroundColor: Colors.accent,
+    borderWidth: 0,
+  },
+  dayText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+  },
+  dayTextToday: {
+    color: Colors.accent,
+    fontWeight: '700',
+  },
+  dayTextSelected: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
+
+  // Dot indicators below day number
+  dotRow: {
+    flexDirection: 'row',
+    gap: 2,
+    marginTop: 1,
+    height: 6,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
 
   // ── Legend ──
@@ -426,9 +584,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Detail Section ──
-  detailSection: {
-    marginTop: Spacing.sm,
-  },
+  detailSection: { marginTop: Spacing.sm },
   detailTitle: {
     fontSize: FontSize.sm,
     fontWeight: '700',
@@ -444,18 +600,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     marginTop: Spacing.sm,
   },
-  itemCard: {
-    marginBottom: Spacing.sm,
-  },
+  itemCard: { marginBottom: Spacing.sm },
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  itemLeft: {
-    flex: 1,
-    marginRight: Spacing.sm,
-  },
+  itemLeft: { flex: 1, marginRight: Spacing.sm },
   itemName: {
     fontSize: FontSize.sm,
     fontWeight: '600',

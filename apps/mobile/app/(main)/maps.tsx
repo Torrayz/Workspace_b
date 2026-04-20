@@ -1,9 +1,10 @@
 // ============================================================================
 // Maps Screen — Peta lokasi kunjungan (laporan)
 // Menampilkan pin lokasi GPS dari setiap laporan yang sudah disubmit
+// Safe for Expo Go: wraps MapView with error boundary
 // ============================================================================
 
-import { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,16 +13,28 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useLaporan, type Laporan } from '@/hooks/useLaporan';
 import { useLocationStore } from '@/store/locationStore';
 import { Colors, FontSize, Spacing, Shadows, BorderRadius, StatusConfig } from '@/constants/theme';
 import { formatRupiah } from '@/lib/formatters';
+import { Card } from '@/components/ui/Card';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const { width: SCREEN_W } = Dimensions.get('window');
+
+// Lazy-load MapView to prevent crash if not available
+let MapView: any = null;
+let Marker: any = null;
+try {
+  const maps = require('react-native-maps');
+  MapView = maps.default;
+  Marker = maps.Marker;
+} catch (e) {
+  // react-native-maps not available (e.g. web or incompatible Expo Go)
+}
 
 // Default region: Indonesia center
 const DEFAULT_REGION = {
@@ -37,8 +50,9 @@ export default function MapsScreen() {
   const insets = useSafeAreaInsets();
   const { laporan, fetchLaporan, loading } = useLaporan();
   const { latitude: userLat, longitude: userLng } = useLocationStore();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const [filter, setFilter] = useState<FilterType>('semua');
+  const [mapError, setMapError] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,8 +72,8 @@ export default function MapsScreen() {
 
   // Fit map to markers
   const fitToMarkers = useCallback(() => {
+    if (!mapRef.current) return;
     if (filteredLaporan.length === 0) {
-      // If no markers, center on user location or default
       if (userLat && userLng) {
         mapRef.current?.animateToRegion({
           latitude: userLat,
@@ -123,6 +137,9 @@ export default function MapsScreen() {
     { key: 'pending', label: 'Pending', color: Colors.warning },
   ];
 
+  // Check if MapView is available
+  const mapAvailable = MapView != null && !mapError;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
@@ -136,13 +153,15 @@ export default function MapsScreen() {
               {filteredLaporan.length} lokasi{filter !== 'semua' ? ` (${filter})` : ''}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.fitBtn}
-            onPress={fitToMarkers}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.fitBtnText}>📍</Text>
-          </TouchableOpacity>
+          {mapAvailable && (
+            <TouchableOpacity
+              style={styles.fitBtn}
+              onPress={fitToMarkers}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.fitBtnText}>📍</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -170,81 +189,138 @@ export default function MapsScreen() {
         ))}
       </View>
 
-      {/* ── Map ── */}
-      <View style={styles.mapContainer}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.accent} />
-            <Text style={styles.loadingText}>Memuat peta...</Text>
-          </View>
-        ) : (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={getInitialRegion()}
-            onMapReady={fitToMarkers}
-            showsUserLocation={true}
-            showsMyLocationButton={false}
-            showsCompass={true}
-            toolbarEnabled={false}
-          >
-            {filteredLaporan.map((l) => {
-              const cfg = StatusConfig[l.status] || StatusConfig.pending;
-              return (
-                <Marker
-                  key={l.id}
-                  coordinate={{
-                    latitude: l.lokasi_lat!,
-                    longitude: l.lokasi_lng!,
-                  }}
-                  pinColor={getPinColor(l.status)}
-                  title={`${cfg.label} — ${formatRupiah(l.jumlah_tagihan)}`}
-                  description={`${new Date(l.tanggal_penagihan).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}${l.keterangan ? ` • ${l.keterangan}` : ''}`}
-                />
-              );
-            })}
-          </MapView>
-        )}
+      {/* ── Map or Fallback List ── */}
+      {mapAvailable ? (
+        <View style={styles.mapContainer}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.accent} />
+              <Text style={styles.loadingText}>Memuat peta...</Text>
+            </View>
+          ) : (
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              initialRegion={getInitialRegion()}
+              onMapReady={fitToMarkers}
+              showsUserLocation={true}
+              showsMyLocationButton={false}
+              showsCompass={true}
+              toolbarEnabled={false}
+            >
+              {filteredLaporan.map((l) => {
+                const cfg = StatusConfig[l.status] || StatusConfig.pending;
+                return (
+                  <Marker
+                    key={l.id}
+                    coordinate={{
+                      latitude: l.lokasi_lat!,
+                      longitude: l.lokasi_lng!,
+                    }}
+                    pinColor={getPinColor(l.status)}
+                    title={`${cfg.label} — ${formatRupiah(l.jumlah_tagihan)}`}
+                    description={`${new Date(l.tanggal_penagihan).toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}${l.keterangan ? ` • ${l.keterangan}` : ''}`}
+                  />
+                );
+              })}
+            </MapView>
+          )}
 
-        {/* ── Stats overlay ── */}
-        {!loading && (
-          <View style={[styles.statsOverlay, { bottom: 80 + Math.max(insets.bottom, 8) }]}>
-            <View style={styles.statsCard}>
-              <View style={styles.statItem}>
-                <View style={[styles.statDot, { backgroundColor: Colors.success }]} />
-                <Text style={styles.statText}>
-                  {laporanWithGPS.filter((l) => l.status === 'lunas').length} Lunas
-                </Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <View style={[styles.statDot, { backgroundColor: Colors.accent }]} />
-                <Text style={styles.statText}>
-                  {laporanWithGPS.filter((l) => l.status === 'sebagian').length} Sebagian
-                </Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <View style={[styles.statDot, { backgroundColor: Colors.danger }]} />
-                <Text style={styles.statText}>
-                  {laporanWithGPS.filter((l) => l.status === 'gagal').length} Gagal
-                </Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <View style={[styles.statDot, { backgroundColor: Colors.warning }]} />
-                <Text style={styles.statText}>
-                  {laporanWithGPS.filter((l) => l.status === 'pending').length} Pending
-                </Text>
+          {/* ── Stats overlay ── */}
+          {!loading && (
+            <View style={[styles.statsOverlay, { bottom: 80 + Math.max(insets.bottom, 8) }]}>
+              <View style={styles.statsCard}>
+                <View style={styles.statItem}>
+                  <View style={[styles.statDot, { backgroundColor: Colors.success }]} />
+                  <Text style={styles.statText}>
+                    {laporanWithGPS.filter((l) => l.status === 'lunas').length} Lunas
+                  </Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <View style={[styles.statDot, { backgroundColor: Colors.accent }]} />
+                  <Text style={styles.statText}>
+                    {laporanWithGPS.filter((l) => l.status === 'sebagian').length} Sebagian
+                  </Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <View style={[styles.statDot, { backgroundColor: Colors.danger }]} />
+                  <Text style={styles.statText}>
+                    {laporanWithGPS.filter((l) => l.status === 'gagal').length} Gagal
+                  </Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <View style={[styles.statDot, { backgroundColor: Colors.warning }]} />
+                  <Text style={styles.statText}>
+                    {laporanWithGPS.filter((l) => l.status === 'pending').length} Pending
+                  </Text>
+                </View>
               </View>
             </View>
+          )}
+        </View>
+      ) : (
+        /* ── Fallback: List View when MapView is not available ── */
+        <ScrollView
+          style={styles.fallbackScroll}
+          contentContainerStyle={styles.fallbackContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.fallbackNotice}>
+            <Text style={styles.fallbackEmoji}>🗺️</Text>
+            <Text style={styles.fallbackTitle}>Peta tidak tersedia</Text>
+            <Text style={styles.fallbackDesc}>
+              Google Maps memerlukan development build.{'\n'}
+              Berikut daftar lokasi kunjungan:
+            </Text>
           </View>
-        )}
-      </View>
+
+          {filteredLaporan.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyText}>Belum ada data lokasi kunjungan</Text>
+            </View>
+          ) : (
+            filteredLaporan.map((l) => {
+              const cfg = StatusConfig[l.status] || StatusConfig.pending;
+              return (
+                <Card key={l.id} style={styles.locationCard} leftBorderColor={cfg.color}>
+                  <View style={styles.locationRow}>
+                    <View style={styles.locationLeft}>
+                      <Text style={styles.locationAmount}>
+                        {formatRupiah(l.jumlah_tagihan)}
+                      </Text>
+                      <Text style={styles.locationMeta}>
+                        📍 {l.lokasi_lat?.toFixed(4)}, {l.lokasi_lng?.toFixed(4)}
+                      </Text>
+                      <Text style={styles.locationMeta}>
+                        {new Date(l.tanggal_penagihan).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                        {l.keterangan ? ` • ${l.keterangan}` : ''}
+                      </Text>
+                    </View>
+                    <View style={[styles.locationBadge, { backgroundColor: cfg.softBg }]}>
+                      <Text style={[styles.locationBadgeText, { color: cfg.color }]}>
+                        {cfg.icon} {cfg.label}
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+              );
+            })
+          )}
+
+          <View style={{ height: 80 + Math.max(insets.bottom, 8) }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -364,5 +440,69 @@ const styles = StyleSheet.create({
     width: 1,
     height: 16,
     backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+
+  // ── Fallback List ──
+  fallbackScroll: { flex: 1 },
+  fallbackContent: { padding: Spacing.md },
+  fallbackNotice: {
+    backgroundColor: Colors.warningSoft,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.warningLight,
+  },
+  fallbackEmoji: { fontSize: 32, marginBottom: 8 },
+  fallbackTitle: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  fallbackDesc: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  emptyBox: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  emptyText: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+  },
+  locationCard: { marginBottom: Spacing.sm },
+  locationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  locationLeft: { flex: 1, marginRight: Spacing.sm },
+  locationAmount: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  locationMeta: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  locationBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  locationBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
