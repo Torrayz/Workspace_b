@@ -35,11 +35,14 @@ config.resolver.extraNodeModules = {
   'react/jsx-dev-runtime': path.resolve(projectRoot, 'node_modules/react/jsx-dev-runtime'),
 };
 
-// 4. Block root workspace's react from being bundled
+// 4. Block duplicate react/react-native copies from being bundled
 config.resolver.blockList = [
   // Block root node_modules/react (v18) - we only want mobile's react (v19)
   new RegExp(`^${escapeRegExp(path.resolve(workspaceRoot, 'node_modules/react'))}(/.*)?$`),
   new RegExp(`^${escapeRegExp(path.resolve(workspaceRoot, 'node_modules/react-dom'))}(/.*)?$`),
+  // Block nested react-native inside third-party packages (e.g. react-native-calendars)
+  // These cause codegen crashes due to version mismatch
+  /.*\/node_modules\/.*\/node_modules\/react-native\/.*/,
 ];
 
 function escapeRegExp(string) {

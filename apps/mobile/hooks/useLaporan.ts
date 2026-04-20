@@ -18,6 +18,9 @@ export interface Laporan {
   status: 'lunas' | 'sebagian' | 'gagal' | 'pending';
   keterangan: string | null;
   foto_urls: string[];
+  lokasi_lat: number | null;
+  lokasi_lng: number | null;
+  lokasi_alamat: string | null;
   created_at: string;
 }
 
@@ -52,7 +55,8 @@ export function useLaporan() {
       .from('laporan')
       .select(`
         id, user_id, rencana_id, jumlah_tagihan,
-        tanggal_penagihan, status, keterangan, foto_urls, created_at
+        tanggal_penagihan, status, keterangan, foto_urls,
+        lokasi_lat, lokasi_lng, lokasi_alamat, created_at
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });

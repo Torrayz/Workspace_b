@@ -80,7 +80,7 @@ export default function MainLayout() {
           ...Shadows.header,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600',
           marginTop: 0,
         },
@@ -98,6 +98,20 @@ export default function MainLayout() {
         options={{
           title: 'Rencana',
           tabBarIcon: ({ focused }) => <TabIcon symbol="📋" label="Rencana" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Kalender',
+          tabBarIcon: ({ focused }) => <TabIcon symbol="📅" label="Kalender" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="maps"
+        options={{
+          title: 'Maps',
+          tabBarIcon: ({ focused }) => <TabIcon symbol="🗺️" label="Maps" focused={focused} />,
         }}
       />
       <Tabs.Screen
