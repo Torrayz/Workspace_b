@@ -10,6 +10,8 @@ Sistem manajemen laporan kunjungan untuk tim field marketing. Terdiri dari **Web
 | **Mobile** | Expo (Expo Router) | SDK 54 |
 | **Mobile UI** | React Native | 0.81.5 |
 | **Mobile State** | Zustand | latest |
+| **Mobile Maps** | react-native-maps (Google Maps) | latest |
+| **Mobile Calendar** | react-native-calendars | latest |
 | **Web** | Next.js (App Router) | 14.2 |
 | **Web Styling** | TailwindCSS | 3.4 |
 | **Backend** | Supabase (PostgreSQL + Edge Functions) | - |
@@ -134,9 +136,11 @@ Workspace_b/
 │   ├── mobile/                   # Expo React Native app
 │   │   ├── app/
 │   │   │   ├── (auth)/           # Login screen
-│   │   │   ├── (main)/           # Tab navigator
+│   │   │   ├── (main)/           # Tab navigator (5 tabs)
 │   │   │   │   ├── index.tsx     # Home — KPI Dashboard
 │   │   │   │   ├── rencana.tsx   # Daftar & buat rencana
+│   │   │   │   ├── calendar.tsx  # Kalender visual rencana & laporan
+│   │   │   │   ├── maps.tsx      # Peta lokasi kunjungan (Google Maps)
 │   │   │   │   ├── history.tsx   # History laporan
 │   │   │   │   ├── laporan/
 │   │   │   │   │   └── buat.tsx  # Form kunjungan (submit laporan)
@@ -181,6 +185,8 @@ Workspace_b/
 |-------|-----------|
 | **KPI Dashboard** | Ringkasan metrik: total rencana, kunjungan bulan ini, DH tertagih, % eksekusi |
 | **Rencana** | Buat & kelola rencana penagihan dengan target nominal dan tanggal |
+| **Kalender** | Kalender visual menampilkan tanggal target rencana & tanggal kunjungan laporan (locale Indonesia) |
+| **Maps** | Peta Google Maps menampilkan pin lokasi GPS kunjungan, filter by status, stat overlay |
 | **Form Kunjungan** | Submit laporan dengan foto, GPS, status (lunas/pending/gagal/sebagian) |
 | **History** | Lihat riwayat semua laporan yang sudah dikirim |
 | **Safe Area** | UI responsif — otomatis menyesuaikan notch, status bar, dan navigasi 3 tombol Android |
