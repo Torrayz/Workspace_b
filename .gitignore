@@ -16,6 +16,13 @@ node_modules/
 .env.test.local
 .env.production.local
 *.env
+.envrc
+!.env.example
+!**/.env.example
+
+# Package manager / registry credentials
+.npmrc
+.yarnrc
 
 # ================================================================
 # Next.js (Web Dashboard)
@@ -38,6 +45,11 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 *.orig.*
+*.keystore
+google-services.json
+GoogleService-Info.plist
+service-account*.json
+credentials*.json
 
 # Generated native folders (Expo)
 ios/
@@ -95,6 +107,7 @@ pnpm-debug.log*
 # Supabase
 # ================================================================
 supabase/.temp/
+supabase/.branches/
 
 # ================================================================
 # Test Coverage

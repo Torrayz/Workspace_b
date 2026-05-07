@@ -1,284 +1,214 @@
 # Field Marketing System
 
-Sistem manajemen laporan kunjungan untuk tim field marketing. Terdiri dari **Web Dashboard** (Admin/Superadmin) dan **Mobile App** (Field Collector).
+Field Marketing System adalah aplikasi internal untuk mengelola rencana penagihan, laporan kunjungan, bukti foto, dan pemantauan lokasi tim lapangan. Project ini menggunakan monorepo npm workspaces dengan dua aplikasi utama: mobile app untuk field collector dan web dashboard untuk admin/superadmin.
+
+## Overview
+
+- **Mobile app**: Expo React Native app untuk user lapangan membuat rencana, mengirim laporan kunjungan, upload foto bukti, dan mengirim lokasi.
+- **Web dashboard**: Next.js dashboard untuk admin dan superadmin melihat KPI, laporan, peta lokasi, dan manajemen user.
+- **Backend**: Supabase PostgreSQL, Row Level Security, Storage, dan Edge Functions.
+- **Shared package**: tipe, konstanta, dan schema validasi yang dapat digunakan lintas app.
 
 ## Tech Stack
 
-| Layer | Teknologi | Versi |
-|-------|-----------|-------|
-| **Monorepo** | npm workspaces | - |
-| **Mobile** | Expo (Expo Router) | SDK 54 |
-| **Mobile UI** | React Native | 0.81.5 |
-| **Mobile State** | Zustand | latest |
-| **Mobile Maps** | react-native-maps (Google Maps) | latest |
-| **Mobile Calendar** | react-native-calendars | latest |
-| **Web** | Next.js (App Router) | 14.2 |
-| **Web Styling** | TailwindCSS | 3.4 |
-| **Backend** | Supabase (PostgreSQL + Edge Functions) | - |
-| **Auth** | Custom JWT via Supabase | - |
-| **Storage** | Supabase Storage | - |
-| **Form** | React Hook Form + Zod | - |
-| **Shared** | `@field-marketing/shared` (validasi + tipe) | - |
+| Area | Technology |
+| --- | --- |
+| Monorepo | npm workspaces |
+| Mobile | Expo SDK 54, React Native 0.81, Expo Router |
+| Web | Next.js 14 App Router, React 18, Tailwind CSS |
+| State | Zustand |
+| Forms | React Hook Form, Zod |
+| Backend | Supabase PostgreSQL, Storage, Edge Functions |
+| Maps | Google Maps / react-native-maps |
+| Shared code | `@field-marketing/shared` |
 
----
+## Repository Structure
 
-## Prasyarat
-
-Pastikan sudah terinstall di komputer kamu:
-
-- **Node.js** ≥ 20.0.0 ([download](https://nodejs.org/))
-- **npm** ≥ 10 (bawaan Node.js)
-- **Git** ([download](https://git-scm.com/))
-- **Expo Go** app di HP (Android/iOS) — untuk testing mobile
-- **ngrok** (opsional, untuk tunnel jika LAN tidak bekerja) — [download](https://ngrok.com/download)
-
----
-
-## Setup Project
-
-### 1. Clone Repository
-
-```bash
-git clone https://github.com/Torrayz/Workspace_b.git
-cd Workspace_b
+```text
+.
+├── apps
+│   ├── mobile                 # Expo React Native app
+│   └── web                    # Next.js dashboard
+├── packages
+│   └── shared                 # Shared types, constants, validations
+├── supabase
+│   ├── functions              # Supabase Edge Functions
+│   └── migrations             # Database migrations
+├── package.json               # Workspace scripts
+├── package-lock.json
+└── tsconfig.base.json
 ```
 
-### 2. Install Dependencies
+## Applications
+
+### Mobile
+
+Located in `apps/mobile`.
+
+Primary responsibilities:
+
+- Login using employee ID.
+- Create and view collection plans.
+- Submit visit reports with amount, status, GPS location, and photo evidence.
+- View report history, calendar, and map-based visit data.
+- Send current location for admin monitoring.
+
+### Web
+
+Located in `apps/web`.
+
+Primary responsibilities:
+
+- Admin and superadmin dashboard.
+- KPI, performance, status, and revenue visualization.
+- Report table, filters, and export flow.
+- User management for superadmin.
+- Delete request approval workflow for plans submitted from mobile.
+
+## Access Model
+
+| Role | Access |
+| --- | --- |
+| `user` | Mobile app only |
+| `admin` | Web dashboard, report monitoring, delete request review |
+| `superadmin` | Full web dashboard access, user management, import flow |
+
+The mobile app blocks admin/superadmin accounts. The web dashboard blocks field user accounts.
+
+## Prerequisites
+
+- Node.js 20 LTS or newer. Node 20 is recommended for Expo development.
+- npm 10 or newer.
+- Expo Go for mobile development.
+- Supabase project.
+- Google Maps API key for mobile maps.
+
+Use npm only. This project is configured for npm workspaces.
+
+## Environment Variables
+
+Create `apps/mobile/.env.local`:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+EXPO_PUBLIC_APP_URL=http://localhost:8081
+```
+
+Create `apps/web/.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+Do not expose `SUPABASE_SERVICE_ROLE_KEY` to client-side code.
+
+## Installation
+
+Install dependencies from the repository root:
 
 ```bash
 npm install
 ```
 
-> ⚠️ Jangan gunakan `pnpm` atau `yarn`. Project ini menggunakan **npm workspaces** karena kompatibilitas dengan Metro Bundler (Expo/React Native).
+Avoid installing dependencies independently inside workspace folders unless you understand the lockfile impact.
 
-### 3. Setup Environment Variables
+## Development
 
-#### Mobile (`apps/mobile/.env.local`)
-
-Buat file `apps/mobile/.env.local`:
-
-```env
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
-EXPO_PUBLIC_APP_URL=http://localhost:8081
-```
-
-#### Web (`apps/web/.env.local`)
-
-Buat file `apps/web/.env.local`:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-```
-
-> 🔑 Dapatkan keys dari [Supabase Dashboard](https://supabase.com/dashboard) → Settings → API
-
----
-
-## Menjalankan Project
-
-### Web Dashboard (Admin/Superadmin)
+Run the web dashboard:
 
 ```bash
 npm run dev:web
 ```
 
-Buka `http://localhost:3000` di browser.
+Run the mobile app:
 
-### Mobile App (Field Collector)
+```bash
+npm run dev:mobile
+```
 
-**Cara 1: Mode LAN** (jika HP & laptop di WiFi yang sama)
+Or from the mobile workspace:
 
 ```bash
 cd apps/mobile
 npx expo start -c
 ```
 
-Scan QR code yang muncul di terminal menggunakan Expo Go.
-
-**Cara 2: Mode Tunnel** (jika LAN tidak bekerja / beda jaringan)
+Use tunnel mode only when LAN connection is not available:
 
 ```bash
 cd apps/mobile
 npx expo start --tunnel -c
 ```
 
-Scan QR code yang muncul di terminal menggunakan Expo Go.
+## Verification
 
-> **⚠️ Troubleshooting Tunnel:**
->
-> Jika muncul error `CommandError: failed to start tunnel` atau `session closed`:
->
-> 1. Buat akun gratis di [ngrok.com](https://dashboard.ngrok.com/signup)
-> 2. Copy authtoken dari dashboard ngrok
-> 3. Jalankan: `ngrok config add-authtoken <TOKEN_ANDA>`
-> 4. Expo menggunakan ngrok v2 bawaan (`@expo/ngrok-bin`) yang mungkin sudah usang.
->    Jika masih error, ganti binary ngrok bawaan Expo dengan ngrok system:
->    ```bash
->    # Backup binary lama
->    NGROK_BIN=$(find ~/.npm-global -path "*/@expo/ngrok-bin-linux-x64/ngrok" 2>/dev/null)
->    cp "$NGROK_BIN" "${NGROK_BIN}.backup"
->    # Symlink ke system ngrok
->    ln -sf $(which ngrok) "$NGROK_BIN"
->    ```
-> 5. Patch file `~/.npm-global/lib/node_modules/@expo/ngrok/index.js` untuk strip internal fields yang tidak dikenal ngrok v3 (lihat commit history untuk detail patch).
-
----
-
-## Struktur Project
-
-```
-Workspace_b/
-├── apps/
-│   ├── mobile/                   # Expo React Native app
-│   │   ├── app/
-│   │   │   ├── (auth)/           # Login screen
-│   │   │   ├── (main)/           # Tab navigator (5 tabs)
-│   │   │   │   ├── index.tsx     # Home — KPI Dashboard
-│   │   │   │   ├── rencana.tsx   # Daftar & buat rencana
-│   │   │   │   ├── calendar.tsx  # Kalender visual rencana & laporan
-│   │   │   │   ├── maps.tsx      # Peta lokasi kunjungan (Google Maps)
-│   │   │   │   ├── history.tsx   # History laporan
-│   │   │   │   ├── laporan/
-│   │   │   │   │   └── buat.tsx  # Form kunjungan (submit laporan)
-│   │   │   │   └── _layout.tsx   # Bottom tab navigator
-│   │   │   └── _layout.tsx       # Root layout (auth guard)
-│   │   ├── components/ui/        # Reusable UI components
-│   │   ├── constants/theme.ts    # Design tokens (colors, spacing, etc.)
-│   │   ├── hooks/                # Custom hooks (useRencana, useLaporan, etc.)
-│   │   ├── lib/                  # Utilities (supabase client, formatters)
-│   │   ├── store/                # Zustand stores (auth, location)
-│   │   └── app.json              # Expo configuration
-│   │
-│   └── web/                      # Next.js web dashboard
-│       └── src/app/
-│           ├── (auth)/           # Login pages
-│           └── dashboard/
-│               ├── admin/        # Admin dashboard (approve reports, manage users)
-│               └── super/        # Superadmin dashboard (full access)
-│
-├── packages/
-│   └── shared/                   # Shared types, validations, constants
-│       ├── types/
-│       ├── validations/
-│       └── constants/
-│
-├── supabase/
-│   ├── functions/                # Supabase Edge Functions
-│   └── migrations/               # Database migration SQL files
-│
-├── package.json                  # Root workspace config
-├── tsconfig.base.json            # Shared TypeScript config
-└── .gitignore
-```
-
----
-
-## Fitur Utama
-
-### Mobile App (Field Collector)
-
-| Fitur | Deskripsi |
-|-------|-----------|
-| **KPI Dashboard** | Ringkasan metrik: total rencana, kunjungan bulan ini, DH tertagih, % eksekusi |
-| **Rencana** | Buat & kelola rencana penagihan dengan target nominal dan tanggal |
-| **Kalender** | Kalender visual menampilkan tanggal target rencana & tanggal kunjungan laporan (locale Indonesia) |
-| **Maps** | Peta Google Maps menampilkan pin lokasi GPS kunjungan, filter by status, stat overlay |
-| **Form Kunjungan** | Submit laporan dengan foto, GPS, status (lunas/pending/gagal/sebagian) |
-| **History** | Lihat riwayat semua laporan yang sudah dikirim |
-| **Safe Area** | UI responsif — otomatis menyesuaikan notch, status bar, dan navigasi 3 tombol Android |
-
-### Web Dashboard (Admin/Superadmin)
-
-| Fitur | Deskripsi |
-|-------|-----------|
-| **Overview** | Statistik global: total user, laporan, rekap per bulan |
-| **Laporan** | Review & approve/reject laporan dari field collector |
-| **User Management** | Tambah/hapus user (superadmin only) |
-| **Persetujuan Hapus** | Approve/reject request hapus rencana dari mobile |
-| **RBAC** | Role-based access: admin vs superadmin vs field collector |
-
----
-
-## Role & Access Control
-
-| Role | Akses |
-|------|-------|
-| `superadmin` | Web dashboard — full access (semua fitur admin + user management) |
-| `admin` | Web dashboard — review laporan, approve delete requests |
-| `user` | Mobile app only — buat rencana, submit laporan, lihat history |
-
-> ⚠️ User dengan role `user` yang mencoba akses web dashboard akan di-redirect ke halaman peringatan. Admin/superadmin tidak bisa akses mobile app.
-
----
-
-## Database (Supabase)
-
-### Tabel Utama
-
-| Tabel | Deskripsi |
-|-------|-----------|
-| `users` | Data user (nama, email, role, wilayah) |
-| `rencana` | Rencana penagihan (target, tanggal, status, delete request) |
-| `laporan` | Laporan kunjungan (foto, GPS, nominal, status) |
-
-### Edge Functions
-
-| Function | Deskripsi |
-|----------|-----------|
-| `process-laporan-submit` | Validasi server-side (GPS bounds, ownership) + insert laporan |
-
----
-
-## Troubleshooting
-
-### "Metro waiting on exp://..." tapi tidak bisa connect dari HP
-
-1. Pastikan HP dan laptop di WiFi yang **sama**
-2. Matikan mobile data di HP sementara
-3. Jika tetap gagal, gunakan mode `--tunnel`
-
-### Warning "@types/react version mismatch"
-
-Project ini menggunakan React 18 di web dan React 19 di mobile. Jika muncul warning:
+Type-check mobile:
 
 ```bash
-# Hapus node_modules dan install ulang
-rm -rf node_modules apps/mobile/node_modules apps/web/node_modules
-npm install
+npx tsc --noEmit -p apps/mobile/tsconfig.json
 ```
 
-### "Invalid hook call" error di mobile
-
-Metro bundler mungkin me-resolve React dari root (v18) bukan dari mobile (v19). File `metro.config.js` sudah dikonfigurasi untuk menangani ini. Jika masih error:
+Type-check web:
 
 ```bash
-cd apps/mobile
-npx expo start -c   # -c flag membersihkan cache Metro
+npx tsc --noEmit -p apps/web/tsconfig.json
 ```
 
-### Build production mobile
+Lint web:
+
+```bash
+npm run lint --workspace=apps/web
+```
+
+Format check:
+
+```bash
+npm run format:check
+```
+
+## Supabase
+
+Database migrations are stored in `supabase/migrations`.
+
+Edge Functions are stored in `supabase/functions`:
+
+| Function | Purpose |
+| --- | --- |
+| `validate-nomor-induk` | Validates employee ID and returns a custom JWT |
+| `process-laporan-submit` | Validates ownership, GPS bounds, and inserts reports |
+| `bulk-import-users` | Imports users from parsed Excel rows |
+
+Apply migrations in order before testing production-like flows. Storage buckets and policies must be configured in Supabase for report photo uploads.
+
+## Mobile Build
+
+Preview Android build:
 
 ```bash
 cd apps/mobile
 npx eas build --platform android --profile preview
 ```
 
----
+Production build configuration is maintained in `apps/mobile/eas.json`.
 
-## Development Notes
+## Monorepo Notes
 
-- **Jangan gunakan pnpm/yarn** — Metro Bundler tidak kompatibel dengan symlink pnpm
-- **Metro config kustom** — `apps/mobile/metro.config.js` memaksa React resolve ke versi mobile (v19)
-- **Design tokens** — Semua warna, spacing, dan radius ada di `apps/mobile/constants/theme.ts`
-- **Formatting** — Jalankan `npm run format` sebelum commit
-- **TypeScript** — Cek error: `cd apps/mobile && npx tsc --noEmit`
+- Web and mobile use different React major versions.
+- `apps/mobile/metro.config.js` forces Metro to resolve React from `apps/mobile/node_modules` to avoid duplicate React runtime issues.
+- Run dependency installation from the root so `package-lock.json` remains authoritative.
+- Keep app-specific environment files inside their respective workspace folders.
 
----
+## Additional Documentation
+
+- `SUPABASE_DEPLOYMENT.md`
+- `MIGRATIONS_VERIFICATION.md`
+- `MOBILE_ADMIN_INTEGRATION_GUIDE.md`
+- `CHANGELOG.md`
 
 ## License
 
-Private project — not for public distribution.
+Private internal project.
